@@ -4,12 +4,14 @@ import type { Sale, Product } from '~/composables/usePosStore'
 import { usePosStore } from '~/composables/usePosStore'
 
 type TimeMode = 'day' | 'month' | 'year'
-type ReportMode = 'time' | 'product'
 type PaymentFilter = 'all' | 'paid' | 'unpaid'
 
 const timeMode = ref<TimeMode>('day')
-const reportMode = ref<ReportMode>('time')
 const paymentFilter = ref<PaymentFilter>('all')
+
+const totalProductQty = computed(() =>
+  productBuckets.value.reduce((sum, row) => sum + row.qty, 0)
+)
 
 const { sales, products } = usePosStore()
 
@@ -292,28 +294,6 @@ const summaryCards = computed(() => {
 <template>
   <section class="card">
     <div class="report-toolbar" style="margin-bottom: 8px;">
-      <span style="font-size: 13px;">Báo cáo theo:</span>
-      <div class="report-toggle-group">
-        <button
-          type="button"
-          class="report-toggle-btn"
-          :class="{ active: reportMode === 'time', disabled: reportMode === 'time' }"
-          :disabled="reportMode === 'time'"
-          @click="reportMode = 'time'"
-        >
-          Thời gian
-        </button>
-        <button
-          type="button"
-          class="report-toggle-btn"
-          :class="{ active: reportMode === 'product', disabled: reportMode === 'product' }"
-          :disabled="reportMode === 'product'"
-          @click="reportMode = 'product'"
-        >
-          Sản phẩm
-        </button>
-      </div>
-
       <span style="font-size: 13px;">Thời gian:</span>
       <div class="report-toggle-group">
         <button
@@ -383,69 +363,91 @@ const summaryCards = computed(() => {
       </div>
     </div>
 
-    <div style="max-height: calc(100vh - 260px); overflow: auto;">
-      <table class="table">
-        <thead>
-          <tr v-if="reportMode === 'time'">
-            <th>Thời gian</th>
-            <th class="text-right">Doanh thu</th>
-            <th class="text-right">Lợi nhuận gộp</th>
-          </tr>
-          <tr v-else>
-            <th style="width: 70px;">Hình</th>
-            <th>Sản phẩm</th>
-            <th class="text-right">Số lượng bán</th>
-            <th class="text-right">Doanh thu</th>
-            <th class="text-right">Lợi nhuận gộp</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="reportMode === 'time'" v-for="row in timeBuckets" :key="row.key">
-            <td>{{ row.label }}</td>
-            <td class="text-right">
-              {{ displayMoney(row.revenue) }}
-            </td>
-            <td class="text-right">
-              {{ displayMoney(row.profit) }}
-            </td>
-          </tr>
+    <div
+      class="report-tables"
+      style="display: flex; gap: 8px; max-height: calc(100vh - 260px);"
+    >
+      <div style="flex: 1; overflow: auto;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th class="text-right">Doanh thu</th>
+              <th class="text-right">Lợi nhuận gộp</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in timeBuckets" :key="row.key">
+              <td>{{ row.label }}</td>
+              <td class="text-right">
+                {{ displayMoney(row.revenue) }}
+              </td>
+              <td class="text-right">
+                {{ displayMoney(row.profit) }}
+              </td>
+            </tr>
+            <tr v-if="!timeBuckets.length">
+              <td colspan="3" class="text-muted">
+                Chưa có dữ liệu bán hàng.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-          <tr v-else v-for="row in productBuckets" :key="row.product.id">
-            <td>
-              <div class="product-thumb">
-                <img
-                  v-if="row.product.image"
-                  :src="productImageUrl(row.product)"
-                  :alt="row.product.name"
-                />
-                <span v-else>Không có ảnh</span>
-              </div>
-            </td>
-            <td>{{ row.product.name || `Mã ${row.product.id}` }}</td>
-            <td class="text-right">
-              {{ row.qty.toLocaleString('vi-VN') }}
-            </td>
-            <td class="text-right">
-              {{ displayMoney(row.revenue) }}
-            </td>
-            <td class="text-right">
-              {{ displayMoney(row.profit) }}
-            </td>
-          </tr>
-
-          <tr v-if="!timeBuckets.length && reportMode === 'time'">
-            <td colspan="3" class="text-muted">
-              Chưa có dữ liệu bán hàng.
-            </td>
-          </tr>
-          <tr v-if="!productBuckets.length && reportMode === 'product'">
-            <td colspan="4" class="text-muted">
-              Chưa có dữ liệu bán hàng.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div style="flex: 1; overflow: auto;">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Hình</th>
+              <th>Sản phẩm</th>
+              <th class="text-right">Số lượng bán</th>
+              <th class="text-right">Doanh thu</th>
+              <th class="text-right">Lợi nhuận gộp</th>
+            </tr>
+            <tr>
+              <th></th>
+              <th></th>
+              <th class="text-right" style="font-weight: bold;">
+                {{ totalProductQty.toLocaleString('vi-VN') }}
+              </th>
+              <th></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in productBuckets" :key="row.product.id">
+              <td>
+                <div class="product-thumb">
+                  <img
+                    v-if="row.product.image"
+                    :src="productImageUrl(row.product)"
+                    :alt="row.product.name"
+                  />
+                  <span v-else>Không có ảnh</span>
+                </div>
+              </td>
+              <td>{{ row.product.name || `Mã ${row.product.id}` }}</td>
+              <td class="text-right">
+                {{ row.qty.toLocaleString('vi-VN') }}
+              </td>
+              <td class="text-right">
+                {{ displayMoney(row.revenue) }}
+              </td>
+              <td class="text-right">
+                {{ displayMoney(row.profit) }}
+              </td>
+            </tr>
+            <tr v-if="!productBuckets.length">
+              <td colspan="5" class="text-muted">
+                Chưa có dữ liệu bán hàng.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 </template>
+
 
