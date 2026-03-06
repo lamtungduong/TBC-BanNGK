@@ -120,7 +120,7 @@ export const usePosStore = () => {
         products: loadedProducts,
         sales: res.sales ?? []
       }
-      const loadedImports = res.imports ?? []
+      const loadedImports = Array.isArray(res.imports) ? res.imports : []
       importsState.value = loadedImports
       nextImportId.value =
         loadedImports.length > 0
@@ -128,19 +128,22 @@ export const usePosStore = () => {
           : 1
     } catch {
       data.value = structuredClone(EMPTY_DATA)
+      importsState.value = []
+      nextImportId.value = 1
     } finally {
       isLoaded.value = true
     }
   }
 
   async function saveData() {
+    const payload: PosData = {
+      products: data.value.products,
+      sales: data.value.sales,
+      imports: importsState.value
+    }
     await $fetch('/api/data', {
       method: 'POST',
-      body: {
-        products: data.value.products,
-        sales: data.value.sales,
-        imports: importsState.value
-      }
+      body: JSON.parse(JSON.stringify(payload))
     })
   }
 

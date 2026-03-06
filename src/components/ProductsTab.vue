@@ -211,24 +211,11 @@ function addNewProduct() {
                 @input="onNumberChange(p, 'price', ($event.target as HTMLInputElement).value)"
               />
             </td>
-            <td>
-              <input
-                class="number-input"
-                type="text"
-                inputmode="numeric"
-                :value="formatMoneyInput(p.cost)"
-                @input="onNumberChange(p, 'cost', ($event.target as HTMLInputElement).value)"
-              />
+            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+              {{ formatMoneyInput(p.cost) }}
             </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                :value="p.stock"
-                @input="onNumberChange(p, 'stock', ($event.target as HTMLInputElement).value)"
-              />
+            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+              {{ p.stock }}
             </td>
             <td>
               <button type="button" class="btn btn-ghost btn-xs" @click="hideProduct(p)">
@@ -371,24 +358,11 @@ function addNewProduct() {
                 @input="onNumberChange(p, 'price', ($event.target as HTMLInputElement).value)"
               />
             </td>
-            <td>
-              <input
-                class="number-input"
-                type="text"
-                inputmode="numeric"
-                :value="formatMoneyInput(p.cost)"
-                @input="onNumberChange(p, 'cost', ($event.target as HTMLInputElement).value)"
-              />
+            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+              {{ formatMoneyInput(p.cost) }}
             </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                :value="p.stock"
-                @input="onNumberChange(p, 'stock', ($event.target as HTMLInputElement).value)"
-              />
+            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+              {{ p.stock }}
             </td>
             <td>
               <button type="button" class="btn btn-ghost btn-xs" @click="showProduct(p)">

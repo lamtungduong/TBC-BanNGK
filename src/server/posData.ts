@@ -47,6 +47,34 @@ export type PosData = {
 }
 
 export async function getPosData(): Promise<PosData> {
+  await query(`
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      image TEXT NOT NULL DEFAULT '',
+      price INTEGER NOT NULL DEFAULT 0,
+      cost INTEGER NOT NULL DEFAULT 0,
+      stock INTEGER NOT NULL DEFAULT 0,
+      pack_size INTEGER DEFAULT 24,
+      is_hidden BOOLEAN DEFAULT false
+    )
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS sales (
+      id INTEGER PRIMARY KEY,
+      timestamp TIMESTAMPTZ NOT NULL
+    )
+  `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS sale_items (
+      id SERIAL PRIMARY KEY,
+      sale_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      qty INTEGER NOT NULL,
+      price INTEGER NOT NULL,
+      cost INTEGER NOT NULL
+    )
+  `)
   const productsResult = await query<{
     id: number
     name: string
@@ -108,6 +136,7 @@ export async function getPosData(): Promise<PosData> {
   `)
   await query(`
     CREATE TABLE IF NOT EXISTS stock_import_items (
+      id SERIAL PRIMARY KEY,
       import_id INTEGER NOT NULL,
       product_id INTEGER NOT NULL,
       cases INTEGER NOT NULL,
@@ -157,13 +186,44 @@ export async function getPosData(): Promise<PosData> {
 export async function saveFullPosData(data: PosData): Promise<void> {
   await withTransaction(async (client) => {
     await client.query(`
-      CREATE TABLE IF NOT EXISTS stock_imports (
+      CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        image TEXT NOT NULL DEFAULT '',
+        price INTEGER NOT NULL DEFAULT 0,
+        cost INTEGER NOT NULL DEFAULT 0,
+        stock INTEGER NOT NULL DEFAULT 0,
+        pack_size INTEGER DEFAULT 24,
+        is_hidden BOOLEAN DEFAULT false
+      )
+    `)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS sales (
         id INTEGER PRIMARY KEY,
         timestamp TIMESTAMPTZ NOT NULL
       )
     `)
     await client.query(`
-      CREATE TABLE IF NOT EXISTS stock_import_items (
+      CREATE TABLE IF NOT EXISTS sale_items (
+        id SERIAL PRIMARY KEY,
+        sale_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL,
+        qty INTEGER NOT NULL,
+        price INTEGER NOT NULL,
+        cost INTEGER NOT NULL
+      )
+    `)
+    await client.query('DROP TABLE IF EXISTS stock_import_items')
+    await client.query('DROP TABLE IF EXISTS stock_imports')
+    await client.query(`
+      CREATE TABLE stock_imports (
+        id INTEGER PRIMARY KEY,
+        timestamp TIMESTAMPTZ NOT NULL
+      )
+    `)
+    await client.query(`
+      CREATE TABLE stock_import_items (
+        id SERIAL PRIMARY KEY,
         import_id INTEGER NOT NULL,
         product_id INTEGER NOT NULL,
         cases INTEGER NOT NULL,
@@ -174,8 +234,6 @@ export async function saveFullPosData(data: PosData): Promise<void> {
       )
     `)
 
-    await client.query('DELETE FROM stock_import_items')
-    await client.query('DELETE FROM stock_imports')
     await client.query('DELETE FROM sale_items')
     await client.query('DELETE FROM sales')
     await client.query('DELETE FROM products')
