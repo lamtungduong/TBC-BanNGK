@@ -65,7 +65,7 @@ const timeBuckets = computed(() => {
     date: new Date(s.timestamp)
   }))
 
-  const map = new Map<string, { label: string; revenue: number; profit: number }>()
+  const map = new Map<string, { label: string; qty: number; revenue: number; profit: number }>()
 
   function bucketKey(d: Date) {
     if (timeMode.value === 'day') {
@@ -96,10 +96,12 @@ const timeBuckets = computed(() => {
   for (const s of allSales) {
     const key = bucketKey(s.date)
     const { revenue, profit } = calcRevenueAndProfit(s)
+    const qty = s.items.reduce((sum, item) => sum + item.qty, 0)
     if (!map.has(key)) {
-      map.set(key, { label: bucketLabel(key), revenue: 0, profit: 0 })
+      map.set(key, { label: bucketLabel(key), qty: 0, revenue: 0, profit: 0 })
     }
     const agg = map.get(key)!
+    agg.qty += qty
     agg.revenue += revenue
     agg.profit += profit
   }
@@ -115,6 +117,7 @@ const timeBuckets = computed(() => {
   return limitedKeys.map((key) => ({
     key,
     label: map.get(key)!.label,
+    qty: map.get(key)!.qty,
     revenue: map.get(key)!.revenue,
     profit: map.get(key)!.profit
   }))
@@ -372,6 +375,7 @@ const summaryCards = computed(() => {
           <thead>
             <tr>
               <th>Thời gian</th>
+              <th class="text-right">Số lượng bán</th>
               <th class="text-right">Doanh thu</th>
               <th class="text-right">Lợi nhuận gộp</th>
             </tr>
@@ -380,6 +384,9 @@ const summaryCards = computed(() => {
             <tr v-for="row in timeBuckets" :key="row.key">
               <td>{{ row.label }}</td>
               <td class="text-right">
+                {{ row.qty.toLocaleString('vi-VN') }}
+              </td>
+              <td class="text-right">
                 {{ displayMoney(row.revenue) }}
               </td>
               <td class="text-right">
@@ -387,7 +394,7 @@ const summaryCards = computed(() => {
               </td>
             </tr>
             <tr v-if="!timeBuckets.length">
-              <td colspan="3" class="text-muted">
+              <td colspan="4" class="text-muted">
                 Chưa có dữ liệu bán hàng.
               </td>
             </tr>
