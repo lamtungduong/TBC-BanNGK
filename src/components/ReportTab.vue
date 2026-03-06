@@ -5,11 +5,23 @@ import { usePosStore } from '~/composables/usePosStore'
 
 type TimeMode = 'day' | 'month' | 'year'
 type ReportMode = 'time' | 'product'
+type PaymentFilter = 'all' | 'paid' | 'unpaid'
 
 const timeMode = ref<TimeMode>('day')
 const reportMode = ref<ReportMode>('time')
+const paymentFilter = ref<PaymentFilter>('all')
 
 const { sales, products } = usePosStore()
+
+const filteredSales = computed(() => {
+  const list = sales.value
+  if (paymentFilter.value === 'all') return list
+  return list.filter((s) => {
+    const { revenue } = calcRevenueAndProfit(s)
+    if (paymentFilter.value === 'paid') return revenue > 0
+    return revenue === 0
+  })
+})
 
 function productImageUrl(p: Product) {
   if (!p.image) return ''
@@ -46,7 +58,7 @@ function calcRevenueAndProfit(sale: Sale) {
 
 const timeBuckets = computed(() => {
   const now = new Date()
-  const allSales = sales.value.map((s) => ({
+  const allSales = filteredSales.value.map((s) => ({
     ...s,
     date: new Date(s.timestamp)
   }))
@@ -105,7 +117,7 @@ const timeBuckets = computed(() => {
 
 const productBuckets = computed(() => {
   const now = new Date()
-  const allSales = sales.value.map((s) => ({
+  const allSales = filteredSales.value.map((s) => ({
     ...s,
     date: new Date(s.timestamp)
   }))
@@ -165,7 +177,7 @@ const summaryCards = computed(() => {
   function sumFor(filter: (d: Date) => boolean) {
     let revenue = 0
     let profit = 0
-    for (const s of sales.value) {
+    for (const s of filteredSales.value) {
       const d = new Date(s.timestamp)
       if (!filter(d)) continue
       const r = calcRevenueAndProfit(s)
@@ -277,17 +289,7 @@ const summaryCards = computed(() => {
 <template>
   <section class="card">
     <div class="report-toolbar" style="margin-bottom: 8px;">
-      <label style="font-size: 13px;">
-        Thời gian:
-        <select v-model="timeMode" class="select-input">
-          <option value="day">Ngày</option>
-          <option value="month">Tháng</option>
-          <option value="year">Năm</option>
-        </select>
-      </label>
-
-      <span style="font-size: 13px;">Báo cáo theo</span>
-
+      <span style="font-size: 13px;">Báo cáo theo:</span>
       <div class="report-toggle-group">
         <button
           type="button"
@@ -306,6 +308,62 @@ const summaryCards = computed(() => {
           @click="reportMode = 'product'"
         >
           Sản phẩm
+        </button>
+      </div>
+
+      <span style="font-size: 13px;">Thời gian:</span>
+      <div class="report-toggle-group">
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: timeMode === 'day' }"
+          @click="timeMode = 'day'"
+        >
+          Ngày
+        </button>
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: timeMode === 'month' }"
+          @click="timeMode = 'month'"
+        >
+          Tháng
+        </button>
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: timeMode === 'year' }"
+          @click="timeMode = 'year'"
+        >
+          Năm
+        </button>
+      </div>
+
+      <span style="font-size: 13px; margin-left: 12px;">Loại đơn:</span>
+      <div class="report-toggle-group">
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: paymentFilter === 'all' }"
+          @click="paymentFilter = 'all'"
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: paymentFilter === 'paid' }"
+          @click="paymentFilter = 'paid'"
+        >
+          Đơn thanh toán
+        </button>
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: paymentFilter === 'unpaid' }"
+          @click="paymentFilter = 'unpaid'"
+        >
+          Đơn không thanh toán
         </button>
       </div>
     </div>
