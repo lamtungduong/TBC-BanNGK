@@ -68,7 +68,10 @@ const timeBuckets = computed(() => {
   function bucketKey(d: Date) {
     if (timeMode.value === 'day') {
       const k = getStartOfDay(d)
-      return k.toISOString().slice(0, 10)
+      const year = k.getFullYear()
+      const month = String(k.getMonth() + 1).padStart(2, '0')
+      const day = String(k.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     }
     if (timeMode.value === 'month') {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -78,8 +81,8 @@ const timeBuckets = computed(() => {
 
   function bucketLabel(key: string) {
     if (timeMode.value === 'day') {
-      const d = new Date(key)
-      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+      const [year, month, day] = key.split('-')
+      return `${day}/${month}/${year}`
     }
     if (timeMode.value === 'month') {
       const [year, month] = key.split('-')
