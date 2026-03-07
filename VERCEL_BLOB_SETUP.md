@@ -9,7 +9,7 @@ Khi deploy lên Vercel, ảnh kéo-thả được lưu qua **Vercel Blob**. Cầ
 1. Vào [vercel.com](https://vercel.com) → chọn **project POS** (không tạo từ team).
 2. Vào tab **Storage** của project đó.
 3. Bấm **Create Database** / **Create Store** → chọn **Blob**.
-4. Đặt tên (ví dụ: `pos-images`), chọn **Public** nếu cần ảnh public.
+4. Đặt tên (ví dụ: `pos-images`). Chọn **Private** hoặc **Public** đều được (app đã hỗ trợ cả hai).
 5. Bấm **Create**.
 
 Khi tạo từ **project**, biến `BLOB_READ_WRITE_TOKEN` thường được **tự động** thêm vào project. Nếu không thấy:
@@ -44,4 +44,4 @@ Khi kéo-thả ảnh trên web Vercel, nếu lỗi bạn sẽ thấy **alert** v
 ## Kết quả
 
 - **Local:** Ảnh lưu vào `src/public/images`, hiển thị qua `/images/...`.
-- **Vercel:** Có `BLOB_READ_WRITE_TOKEN` → ảnh upload lên Blob, hiển thị bằng URL Blob. Sản phẩm cũ (chỉ có tên file) vẫn dùng `/images/...`.
+- **Vercel:** Có `BLOB_READ_WRITE_TOKEN` → ảnh upload lên Blob. Nếu store **Private**, ảnh hiển thị qua proxy `/api/blob-image?url=...`; nếu **Public** thì dùng URL Blob trực tiếp. Sản phẩm cũ (chỉ có tên file) vẫn dùng `/images/...`.

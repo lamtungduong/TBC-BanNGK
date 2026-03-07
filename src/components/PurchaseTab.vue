@@ -51,6 +51,9 @@ function updateCases(row: PurchaseRow, delta: number) {
 
 function productImageUrl(product: Product) {
   if (!product.image) return ''
+  if (product.image.includes('private.blob.vercel-storage.com')) {
+    return `/api/blob-image?url=${encodeURIComponent(product.image)}`
+  }
   return product.image.startsWith('http') ? product.image : `/images/${product.image}`
 }
 

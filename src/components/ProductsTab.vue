@@ -161,11 +161,17 @@ function handleDropNewProduct(e: DragEvent, index: number) {
 
 function productImageUrl(product: Product) {
   if (!product.image) return ''
+  if (product.image.includes('private.blob.vercel-storage.com')) {
+    return `/api/blob-image?url=${encodeURIComponent(product.image)}`
+  }
   return product.image.startsWith('http') ? product.image : `/images/${product.image}`
 }
 
 function imageUrl(img: string) {
   if (!img) return ''
+  if (img.includes('private.blob.vercel-storage.com')) {
+    return `/api/blob-image?url=${encodeURIComponent(img)}`
+  }
   return img.startsWith('http') ? img : `/images/${img}`
 }
 
