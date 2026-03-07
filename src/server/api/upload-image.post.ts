@@ -26,6 +26,8 @@ export default defineEventHandler(async (event) => {
     })
   }
   const safeName = fileName.replace(/[\\/:*?"<>|]/g, '_')
+  const contentTypeMatch = dataUrl.match(/^data:(image\/[a-z+]+);/)
+  const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/png'
 
   // Trên Vercel: dùng Blob (chỉ load package khi có token → local không chậm)
   const token = process.env.BLOB_READ_WRITE_TOKEN
@@ -34,7 +36,7 @@ export default defineEventHandler(async (event) => {
       const { put } = await import('@vercel/blob')
       const blob = await put(safeName, buffer, {
         access: 'private',
-        contentType: 'image/png',
+        contentType,
         allowOverwrite: true
       })
       return { fileName: safeName, url: blob.url }

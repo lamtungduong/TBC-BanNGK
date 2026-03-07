@@ -100,32 +100,90 @@ function onNumberChange(
   scheduleSave()
 }
 
+const MAX_IMAGE_PX = 54
+
+/** Resize ảnh max 54×54 (giữ tỉ lệ), trả về data URL JPEG để nhẹ; thất bại thì trả về null. */
+function resizeImageToDataUrl(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(null)
+      return
+    }
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const w = img.naturalWidth
+      const h = img.naturalHeight
+      if (!w || !h) {
+        resolve(null)
+        return
+      }
+      const scale = Math.min(MAX_IMAGE_PX / w, MAX_IMAGE_PX / h, 1)
+      const cw = Math.round(w * scale)
+      const ch = Math.round(h * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = cw
+      canvas.height = ch
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(null)
+        return
+      }
+      ctx.drawImage(img, 0, 0, cw, ch)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88)
+      resolve(dataUrl)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(null)
+    }
+    img.src = url
+  })
+}
+
+async function uploadImage(dataUrl: string, fileName: string): Promise<string> {
+  const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
+    method: 'POST',
+    body: { fileName, dataUrl }
+  })
+  return res.url ?? res.fileName
+}
+
 function handleDrop(e: DragEvent, product: Product) {
   e.preventDefault()
   const file = e.dataTransfer?.files?.[0]
   if (!file) return
 
-  const reader = new FileReader()
-  reader.onload = async () => {
-    const base64 = (reader.result as string) || ''
-    if (!base64.startsWith('data:')) return
+  const baseName = product.name ? `${product.name}` : `product-${product.id}`
 
-    const fileName = product.name ? `${product.name}.png` : `product-${product.id}.png`
-
+  resizeImageToDataUrl(file).then(async (dataUrl) => {
+    let urlToUse: string | null = dataUrl
+    if (!urlToUse) urlToUse = await readFileAsDataUrl(file)
+    if (!urlToUse) return
+    const ext = urlToUse.startsWith('data:image/jpeg') ? '.jpg' : '.png'
+    const fileName = `${baseName}${ext}`
     try {
-      const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
-        method: 'POST',
-        body: { fileName, dataUrl: base64 }
-      })
-      product.image = res.url ?? res.fileName
+      const url = await uploadImage(urlToUse, fileName)
+      product.image = url
       blobImageVersions.value[String(product.id)] = Date.now()
       scheduleSave()
-    } catch (e: any) {
-      const msg = e?.data?.statusMessage || e?.message || 'Upload ảnh thất bại.'
-      alert(msg)
+    } catch (err: any) {
+      alert(err?.data?.statusMessage || err?.message || 'Upload ảnh thất bại.')
     }
-  }
-  reader.readAsDataURL(file)
+  })
+}
+
+function readFileAsDataUrl(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const s = reader.result as string
+      resolve(s?.startsWith('data:') ? s : null)
+    }
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(file)
+  })
 }
 
 function handleDragOver(e: DragEvent) {
@@ -143,25 +201,23 @@ function handleDropNewProduct(e: DragEvent, index: number) {
   e.preventDefault()
   const file = e.dataTransfer?.files?.[0]
   if (!file) return
-  const reader = new FileReader()
-  reader.onload = async () => {
-    const base64 = (reader.result as string) || ''
-    if (!base64.startsWith('data:')) return
-    const row = newProducts[index]
-    const fileName = row.name ? `${row.name.trim()}.png` : `new-product-${index + 1}.png`
+  const row = newProducts[index]
+  const baseName = row.name?.trim() || `new-product-${index + 1}`
+
+  resizeImageToDataUrl(file).then(async (dataUrl) => {
+    let urlToUse: string | null = dataUrl
+    if (!urlToUse) urlToUse = await readFileAsDataUrl(file)
+    if (!urlToUse) return
+    const ext = urlToUse.startsWith('data:image/jpeg') ? '.jpg' : '.png'
+    const fileName = `${baseName}${ext}`
     try {
-      const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
-        method: 'POST',
-        body: { fileName, dataUrl: base64 }
-      })
-      row.image = res.url ?? res.fileName
+      const url = await uploadImage(urlToUse, fileName)
+      row.image = url
       blobImageVersions.value['new-' + index] = Date.now()
-    } catch (e: any) {
-      const msg = e?.data?.statusMessage || e?.message || 'Upload ảnh thất bại.'
-      alert(msg)
+    } catch (err: any) {
+      alert(err?.data?.statusMessage || err?.message || 'Upload ảnh thất bại.')
     }
-  }
-  reader.readAsDataURL(file)
+  })
 }
 
 function productImageUrl(product: Product) {
