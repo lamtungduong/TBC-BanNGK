@@ -2,7 +2,7 @@
 const activeTab = ref<'sale' | 'products' | 'purchase' | 'orders' | 'report'>('sale')
 provide('activeTab', activeTab)
 const { isProcessing, isInitialLoad, processingStartTime, lastLoadDurationMs } = usePosStore()
-const showProcessingOverlay = computed(() => isProcessing && !isInitialLoad)
+const showProcessingOverlay = computed(() => isProcessing.value && !isInitialLoad.value)
 
 // Hiển thị thời gian: đang xử lý = elapsed, xong = last duration
 const loadTimeDisplay = ref<string>('')
