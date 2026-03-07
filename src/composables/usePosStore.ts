@@ -64,6 +64,10 @@ export const usePosStore = () => {
   const data = useState<PosData>('pos-data', () => structuredClone(EMPTY_DATA))
   const isLoaded = useState<boolean>('pos-loaded', () => false)
   const isProcessing = useState<boolean>('pos-processing', () => false)
+  /** Thời điểm bắt đầu xử lý (để tính thời gian load). */
+  const processingStartTime = useState<number | null>('pos-processing-start', () => null)
+  /** Thời gian xử lý lần trước (ms), hiển thị ở header. */
+  const lastLoadDurationMs = useState<number | null>('pos-last-load-duration', () => null)
   /** False sau lần load đầu; dùng để không hiện overlay khi web mới load. */
   const isInitialLoad = useState<boolean>('pos-initial-load', () => true)
 
@@ -133,9 +137,14 @@ export const usePosStore = () => {
   async function withProcessing<T>(fn: () => Promise<T>): Promise<T> {
     if (isProcessing.value) return undefined as T
     isProcessing.value = true
+    processingStartTime.value = Date.now()
     try {
       return await fn()
     } finally {
+      if (processingStartTime.value != null) {
+        lastLoadDurationMs.value = Date.now() - processingStartTime.value
+      }
+      processingStartTime.value = null
       isProcessing.value = false
     }
   }
@@ -405,6 +414,8 @@ export const usePosStore = () => {
     cartTotal,
     imports,
     isProcessing,
+    processingStartTime,
+    lastLoadDurationMs,
     isInitialLoad,
     lastImportCostPerUnitByProductId,
     loadData,

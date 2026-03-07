@@ -27,6 +27,13 @@ body {
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.25);
 }
 
+.app-header-duration {
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.95;
+}
+
 .app-title {
   font-weight: 600;
   font-size: 18px;

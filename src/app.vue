@@ -1,8 +1,44 @@
 <script setup lang="ts">
 const activeTab = ref<'sale' | 'products' | 'purchase' | 'orders' | 'report'>('sale')
 provide('activeTab', activeTab)
-const { isProcessing, isInitialLoad } = usePosStore()
+const { isProcessing, isInitialLoad, processingStartTime, lastLoadDurationMs } = usePosStore()
 const showProcessingOverlay = computed(() => isProcessing && !isInitialLoad)
+
+// Hiển thị thời gian: đang xử lý = elapsed, xong = last duration
+const loadTimeDisplay = ref<string>('')
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
+
+function formatDuration(ms: number): string {
+  if (ms >= 1000) return `${(ms / 1000).toFixed(2)} s`
+  return `${Math.round(ms)} ms`
+}
+
+watch(
+  [isProcessing, processingStartTime, lastLoadDurationMs],
+  () => {
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = null
+    }
+    if (isProcessing && processingStartTime) {
+      const start = processingStartTime
+      const update = () => {
+        loadTimeDisplay.value = formatDuration(Date.now() - start)
+      }
+      update()
+      elapsedTimer = setInterval(update, 100)
+    } else if (lastLoadDurationMs != null) {
+      loadTimeDisplay.value = formatDuration(lastLoadDurationMs)
+    } else {
+      loadTimeDisplay.value = ''
+    }
+  },
+  { immediate: true }
+)
+
+onUnmounted(() => {
+  if (elapsedTimer) clearInterval(elapsedTimer)
+})
 </script>
 
 <template>
@@ -45,6 +81,9 @@ const showProcessingOverlay = computed(() => isProcessing && !isInitialLoad)
         >
           Báo cáo
         </button>
+      </div>
+      <div v-if="loadTimeDisplay" class="app-header-duration" aria-label="Thời gian xử lý">
+        {{ loadTimeDisplay }}
       </div>
     </header>
     <main class="app-main">
