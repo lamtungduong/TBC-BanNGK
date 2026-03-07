@@ -1,11 +1,12 @@
 <script setup lang="ts">
 const activeTab = ref<'sale' | 'products' | 'purchase' | 'orders' | 'report'>('sale')
 provide('activeTab', activeTab)
-const { isProcessing } = usePosStore()
+const { isProcessing, isInitialLoad } = usePosStore()
+const showProcessingOverlay = computed(() => isProcessing && !isInitialLoad)
 </script>
 
 <template>
-  <div class="app-root" :class="{ 'is-processing': isProcessing }">
+  <div class="app-root" :class="{ 'is-processing': showProcessingOverlay }">
     <header class="app-header">
       <div class="app-title">TBC - FnB</div>
       <div class="tab-bar">
@@ -48,7 +49,7 @@ const { isProcessing } = usePosStore()
     </header>
     <main class="app-main">
       <NuxtPage />
-      <div v-if="isProcessing" class="processing-overlay" aria-hidden="true" />
+      <div v-if="showProcessingOverlay" class="processing-overlay" aria-hidden="true" />
     </main>
   </div>
 </template>

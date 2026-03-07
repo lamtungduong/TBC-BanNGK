@@ -64,6 +64,8 @@ export const usePosStore = () => {
   const data = useState<PosData>('pos-data', () => structuredClone(EMPTY_DATA))
   const isLoaded = useState<boolean>('pos-loaded', () => false)
   const isProcessing = useState<boolean>('pos-processing', () => false)
+  /** False sau lần load đầu; dùng để không hiện overlay khi web mới load. */
+  const isInitialLoad = useState<boolean>('pos-initial-load', () => true)
 
   const cart = useState<{ productId: number; qty: number }[]>('pos-cart', () => [])
   const noPayment = useState<boolean>('pos-no-payment', () => false)
@@ -169,6 +171,7 @@ export const usePosStore = () => {
       nextImportId.value = 1
     } finally {
       isLoaded.value = true
+      isInitialLoad.value = false
     }
     })
   }
@@ -402,6 +405,7 @@ export const usePosStore = () => {
     cartTotal,
     imports,
     isProcessing,
+    isInitialLoad,
     lastImportCostPerUnitByProductId,
     loadData,
     saveProducts,
