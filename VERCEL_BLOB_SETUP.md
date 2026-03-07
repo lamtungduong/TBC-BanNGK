@@ -1,46 +1,47 @@
 # Cấu hình Vercel Blob cho upload ảnh sản phẩm
 
-Khi deploy lên Vercel, ảnh kéo-thả được lưu qua **Vercel Blob**. Bạn cần tạo Blob Store và cấu hình token một lần.
+Khi deploy lên Vercel, ảnh kéo-thả được lưu qua **Vercel Blob**. Cần tạo Blob Store và **kết nối với project** (để token được tự động thêm).
 
-## Các bước thao tác
+## Các bước trên Vercel (quan trọng)
 
-### 1. Cài dependency (đã thêm trong code)
+### 1. Tạo Blob Store **từ chính project POS**
 
-```bash
-npm install
-```
+1. Vào [vercel.com](https://vercel.com) → chọn **project POS** (không tạo từ team).
+2. Vào tab **Storage** của project đó.
+3. Bấm **Create Database** / **Create Store** → chọn **Blob**.
+4. Đặt tên (ví dụ: `pos-images`), chọn **Public** nếu cần ảnh public.
+5. Bấm **Create**.
 
-### 2. Trên Vercel Dashboard
+Khi tạo từ **project**, biến `BLOB_READ_WRITE_TOKEN` thường được **tự động** thêm vào project. Nếu không thấy:
 
-1. Vào [vercel.com](https://vercel.com) → chọn project POS của bạn.
-2. Vào **Storage** (tab Storage trong project).
-3. Chọn **Create Database** hoặc **Create Store** → chọn **Blob**.
-4. Đặt tên (ví dụ: `pos-images`) → **Create**.
-5. Sau khi tạo, vào tab **Settings** của Blob store (hoặc **.env** của project).
-6. Copy biến môi trường **`BLOB_READ_WRITE_TOKEN`**.
+- Vào **Storage** → chọn store vừa tạo → **Connect to Project** (chọn đúng project POS).
 
-### 3. Gắn token vào Project
+### 2. Redeploy
 
-1. Trong project Vercel: **Settings** → **Environment Variables**.
-2. Thêm biến:
-   - **Name:** `BLOB_READ_WRITE_TOKEN`
-   - **Value:** (dán token vừa copy)
-   - **Environment:** chọn Production (và Preview nếu muốn preview deploy cũng upload được).
-3. **Save**.
+Sau khi store đã **Connected** với project:
 
-### 4. Redeploy
+- Vào **Deployments** → bấm **...** ở deployment mới nhất → **Redeploy**.
 
-Sau khi lưu env, cần deploy lại để áp dụng:
+Hoặc push commit mới để tạo deployment mới. **Env mới chỉ có hiệu lực sau khi redeploy.**
 
-- **Deployments** → menu (...) của deployment mới nhất → **Redeploy**.
+### 3. Nếu vẫn không upload được
 
-Hoặc push commit mới để tạo deployment mới.
+Khi kéo-thả ảnh trên web Vercel, nếu lỗi bạn sẽ thấy **alert** với nội dung lỗi (ví dụ: token sai, chưa kết nối store, ảnh quá lớn). Ghi lại nội dung đó để kiểm tra:
+
+- **Settings** → **Environment Variables**: có biến `BLOB_READ_WRITE_TOKEN` cho môi trường Production (và Preview nếu cần).
+- Storage → Blob store đã **Connect to Project** đúng project POS.
+- Đã **Redeploy** sau khi thêm/env thay đổi.
+
+Ảnh **quá lớn** (> khoảng 3MB) sẽ báo lỗi; nên dùng ảnh nhỏ hơn hoặc resize trước khi kéo-thả.
 
 ---
 
+## Local (localhost)
+
+- Chạy `npm install` rồi `npm run dev`.
+- **Không cần** token; ảnh vẫn lưu vào `src/public/images`, không dùng Blob → không bị chậm do load package.
+
 ## Kết quả
 
-- **Local (localhost):** Ảnh vẫn lưu vào thư mục `src/public/images` (không cần token).
-- **Vercel:** Nếu có `BLOB_READ_WRITE_TOKEN`, ảnh upload lên Vercel Blob và hiển thị bằng URL từ Blob. Kéo-thả ảnh sản phẩm hoạt động bình thường.
-
-Sản phẩm đã có ảnh (tên file) từ trước vẫn hiển thị qua route `/images/...`. Chỉ ảnh upload mới trên Vercel sẽ dùng URL Blob.
+- **Local:** Ảnh lưu vào `src/public/images`, hiển thị qua `/images/...`.
+- **Vercel:** Có `BLOB_READ_WRITE_TOKEN` → ảnh upload lên Blob, hiển thị bằng URL Blob. Sản phẩm cũ (chỉ có tên file) vẫn dùng `/images/...`.

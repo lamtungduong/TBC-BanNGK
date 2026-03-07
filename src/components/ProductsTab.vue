@@ -109,16 +109,17 @@ function handleDrop(e: DragEvent, product: Product) {
 
     const fileName = product.name ? `${product.name}.png` : `product-${product.id}.png`
 
-    const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
-      method: 'POST',
-      body: {
-        fileName,
-        dataUrl: base64
-      }
-    })
-
-    product.image = res.url ?? res.fileName
-    scheduleSave()
+    try {
+      const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
+        method: 'POST',
+        body: { fileName, dataUrl: base64 }
+      })
+      product.image = res.url ?? res.fileName
+      scheduleSave()
+    } catch (e: any) {
+      const msg = e?.data?.statusMessage || e?.message || 'Upload ảnh thất bại.'
+      alert(msg)
+    }
   }
   reader.readAsDataURL(file)
 }
@@ -144,11 +145,16 @@ function handleDropNewProduct(e: DragEvent, index: number) {
     if (!base64.startsWith('data:')) return
     const row = newProducts[index]
     const fileName = row.name ? `${row.name.trim()}.png` : `new-product-${index + 1}.png`
-    const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
-      method: 'POST',
-      body: { fileName, dataUrl: base64 }
-    })
-    row.image = res.url ?? res.fileName
+    try {
+      const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
+        method: 'POST',
+        body: { fileName, dataUrl: base64 }
+      })
+      row.image = res.url ?? res.fileName
+    } catch (e: any) {
+      const msg = e?.data?.statusMessage || e?.message || 'Upload ảnh thất bại.'
+      alert(msg)
+    }
   }
   reader.readAsDataURL(file)
 }
