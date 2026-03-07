@@ -31,8 +31,11 @@ const hiddenProducts = computed(() =>
   products.value.filter((p) => p.isHidden)
 )
 
-const expandedSelling = ref(true)
-const expandedHidden = ref(true)
+const showSelling = ref(true)
+const displayedProducts = computed(() =>
+  showSelling.value ? visibleProducts.value : hiddenProducts.value
+)
+
 
 type NewProductRow = {
   name: string
@@ -197,18 +200,28 @@ function addAllNewProducts() {
 <template>
   <div class="products-layout">
   <section class="card card-selling">
-    <div
-      class="card-header-toggle"
-      role="button"
-      tabindex="0"
-      @click="expandedSelling = !expandedSelling"
-      @keydown.enter.prevent="expandedSelling = !expandedSelling"
-    >
-      <h3 style="margin: 0; font-size: 14px;">Sản phẩm đang bán</h3>
-      <span class="card-toggle-icon" :class="{ collapsed: !expandedSelling }">▼</span>
+    <div class="report-toolbar" style="margin-bottom: 8px;">
+      <span style="font-size: 13px;">Sản phẩm</span>
+      <div class="report-toggle-group">
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: showSelling }"
+          @click="showSelling = true"
+        >
+          Đang bán
+        </button>
+        <button
+          type="button"
+          class="report-toggle-btn"
+          :class="{ active: !showSelling }"
+          @click="showSelling = false"
+        >
+          Đã ẩn
+        </button>
+      </div>
     </div>
-
-    <div v-show="expandedSelling" class="products-table-wrapper">
+    <div class="products-table-wrapper">
       <table class="table">
         <thead>
           <tr>
@@ -223,7 +236,7 @@ function addAllNewProducts() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in visibleProducts" :key="p.id">
+          <tr v-for="p in displayedProducts" :key="p.id">
             <td>{{ p.displayOrder ?? p.id }}</td>
             <td>
               <input
@@ -278,9 +291,27 @@ function addAllNewProducts() {
               {{ p.stock }}
             </td>
             <td class="text-center">
-              <button type="button" class="btn btn-default btn-m" @click="hideProduct(p)">
+              <button
+                v-if="showSelling"
+                type="button"
+                class="btn btn-default btn-m"
+                @click="hideProduct(p)"
+              >
                 Ẩn
               </button>
+              <button
+                v-else
+                type="button"
+                class="btn btn-default btn-m"
+                @click="showProduct(p)"
+              >
+                Hiện
+              </button>
+            </td>
+          </tr>
+          <tr v-if="!showSelling && !displayedProducts.length">
+            <td colspan="8" class="text-muted" style="font-size: 13px;">
+              Không có sản phẩm nào bị ẩn.
             </td>
           </tr>
         </tbody>
@@ -367,105 +398,6 @@ function addAllNewProducts() {
       </div>
     </section>
 
-    <section class="card">
-    <div
-      class="card-header-toggle"
-      role="button"
-      tabindex="0"
-      @click="expandedHidden = !expandedHidden"
-      @keydown.enter.prevent="expandedHidden = !expandedHidden"
-    >
-      <h3 style="margin: 0; font-size: 14px;">Sản phẩm đã ẩn</h3>
-      <span class="card-toggle-icon" :class="{ collapsed: !expandedHidden }">▼</span>
-    </div>
-
-    <div v-show="expandedHidden" class="products-table-wrapper">
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="width: 50px;">STT</th>
-            <th>Tên hàng</th>
-            <th style="width: 80px;" class="text-center">SL/thùng</th>
-            <th style="width: 120px;" class="text-center">Hình ảnh</th>
-            <th style="width: 110px;" class="text-center">Giá bán</th>
-            <th style="width: 80px;" class="text-center">Giá vốn</th>
-            <th style="width: 80px;" class="text-center">Tồn kho</th>
-            <th style="width: 80px;" class="text-center">Thao tác</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in hiddenProducts" :key="p.id">
-            <td>{{ p.displayOrder ?? p.id }}</td>
-            <td>
-              <input
-                class="field-input"
-                type="text"
-                :value="p.name"
-                @input="onNameChange(p, ($event.target as HTMLInputElement).value)"
-              />
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                :value="p.packSize ?? 24"
-                @input="onNumberChange(p, 'packSize', ($event.target as HTMLInputElement).value)"
-              />
-            </td>
-            <td>
-              <div
-                class="drop-zone"
-                @dragover="handleDragOver"
-                @dragleave="handleDragLeave"
-                @drop="handleDrop($event, p)"
-              >
-                <div v-if="p.image">
-                  <img
-                    :src="productImageUrl(p)"
-                    :alt="p.name"
-                    style="width: 54px; height: 54px; object-fit: cover; border-radius: 6px;"
-                  />
-                  <div class="mt-2" style="font-size: 10px; color: #6b7280;">
-                    {{ p.image }}
-                  </div>
-                </div>
-                <div v-else>
-                  Kéo & thả ảnh vào đây
-                </div>
-              </div>
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="text"
-                inputmode="numeric"
-                :value="formatMoneyInput(p.price)"
-                @input="onNumberChange(p, 'price', ($event.target as HTMLInputElement).value)"
-              />
-            </td>
-            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
-              {{ formatMoneyInput(lastImportCostPerUnitByProductId[p.id] ?? p.cost) }}
-            </td>
-            <td class="text-center text-muted" style="font-variant-numeric: tabular-nums;">
-              {{ p.stock }}
-            </td>
-            <td class="text-center">
-              <button type="button" class="btn btn-default btn-m" @click="showProduct(p)">
-                Hiện
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!hiddenProducts.length">
-            <td colspan="7" class="text-muted" style="font-size: 13px;">
-              Không có sản phẩm nào bị ẩn.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
   </div>
   </div>
 </template>
@@ -508,25 +440,5 @@ function addAllNewProducts() {
 .card-selling .products-table-wrapper {
   overflow: auto;
   min-height: 0;
-}
-.card-header-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  cursor: pointer;
-  user-select: none;
-  padding: 2px 0;
-}
-.card-header-toggle:focus {
-  outline: none;
-}
-.card-toggle-icon {
-  font-size: 10px;
-  opacity: 0.7;
-  transition: transform 0.2s ease;
-}
-.card-toggle-icon.collapsed {
-  transform: rotate(-90deg);
 }
 </style>
