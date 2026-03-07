@@ -34,15 +34,44 @@ const hiddenProducts = computed(() =>
 const expandedSelling = ref(true)
 const expandedHidden = ref(true)
 
-const newProduct = reactive<Omit<Product, 'id'>>({
-  name: '',
-  image: '',
-  price: 0,
-  cost: 0,
-  stock: 0,
-  packSize: 24,
-  isHidden: false
-} as Omit<Product, 'id'>)
+type NewProductRow = {
+  name: string
+  image: string
+  price: number | null
+  cost: number
+  stock: number
+  packSize: number
+  isHidden: boolean
+}
+
+function createEmptyNewRow(): NewProductRow {
+  return {
+    name: '',
+    image: '',
+    price: null,
+    cost: 0,
+    stock: 0,
+    packSize: 24,
+    isHidden: false
+  }
+}
+
+const newProducts = reactive<NewProductRow[]>([
+  createEmptyNewRow(),
+  createEmptyNewRow(),
+  createEmptyNewRow(),
+  createEmptyNewRow(),
+  createEmptyNewRow()
+])
+
+const canAddAny = computed(() =>
+  newProducts.some((r) => (r.name || '').trim() !== '')
+)
+
+function onNewRowPriceChange(index: number, value: string) {
+  const normalized = value.replace(/[^0-9]/g, '')
+  newProducts[index].price = normalized === '' ? null : (isNaN(Number(normalized)) ? null : Number(normalized))
+}
 
 function formatMoneyInput(v: number) {
   if (!v) return ''
@@ -102,6 +131,25 @@ function handleDragLeave(e: DragEvent) {
   target.classList.remove('drag-over')
 }
 
+function handleDropNewProduct(e: DragEvent, index: number) {
+  e.preventDefault()
+  const file = e.dataTransfer?.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = async () => {
+    const base64 = (reader.result as string) || ''
+    if (!base64.startsWith('data:')) return
+    const row = newProducts[index]
+    const fileName = row.name ? `${row.name.trim()}.png` : `new-product-${index + 1}.png`
+    const res = await $fetch<{ fileName: string }>('/api/upload-image', {
+      method: 'POST',
+      body: { fileName, dataUrl: base64 }
+    })
+    row.image = res.fileName
+  }
+  reader.readAsDataURL(file)
+}
+
 function productImageUrl(product: Product) {
   if (!product.image) return ''
   return `/images/${product.image}`
@@ -117,36 +165,38 @@ function showProduct(p: Product) {
   scheduleSave()
 }
 
-function addNewProduct() {
-  if (!newProduct.name || !newProduct.name.trim()) return
+function addAllNewProducts() {
+  if (!canAddAny.value) return
 
   const list = data.value.products
-  const nextId = list.length ? Math.max(...list.map((p) => p.id)) + 1 : 1
+  let nextId = list.length ? Math.max(...list.map((p) => p.id)) + 1 : 1
 
-  list.push({
-    id: nextId,
-    name: newProduct.name.trim(),
-    image: newProduct.image,
-    price: Number(newProduct.price) || 0,
-    cost: Number(newProduct.cost) || 0,
-    stock: Number(newProduct.stock) || 0,
-    packSize: Number(newProduct.packSize) || 24,
-    isHidden: false
-  })
+  for (const row of newProducts) {
+    const name = (row.name || '').trim()
+    if (name === '' || row.price == null || isNaN(row.price)) continue
+    list.push({
+      id: nextId++,
+      name,
+      image: row.image,
+      price: Number(row.price) || 0,
+      cost: Number(row.cost) || 0,
+      stock: Number(row.stock) || 0,
+      packSize: Number(row.packSize) || 24,
+      isHidden: false
+    })
+  }
 
-  newProduct.name = ''
-  newProduct.image = ''
-  newProduct.price = 0
-  newProduct.cost = 0
-  newProduct.stock = 0
-  newProduct.packSize = 24
+  for (let i = 0; i < newProducts.length; i++) {
+    Object.assign(newProducts[i], createEmptyNewRow())
+  }
 
   scheduleSave()
 }
 </script>
 
 <template>
-  <section class="card">
+  <div class="products-layout">
+  <section class="card card-selling">
     <div
       class="card-header-toggle"
       role="button"
@@ -164,11 +214,11 @@ function addNewProduct() {
           <tr>
             <th style="width: 50px;">STT</th>
             <th>Tên hàng</th>
-            <th style="width: 90px;" class="text-center">SL/thùng</th>
+            <th style="width: 80px;" class="text-center">SL/thùng</th>
             <th style="width: 120px;" class="text-center">Hình ảnh</th>
             <th style="width: 110px;" class="text-center">Giá bán</th>
-            <th style="width: 110px;" class="text-center">Giá vốn</th>
-            <th style="width: 110px;" class="text-center">Tồn kho</th>
+            <th style="width: 80px;" class="text-center">Giá vốn</th>
+            <th style="width: 80px;" class="text-center">Tồn kho</th>
             <th style="width: 80px;" class="text-center">Thao tác</th>
           </tr>
         </thead>
@@ -224,7 +274,7 @@ function addNewProduct() {
             <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
               {{ formatMoneyInput(lastImportCostPerUnitByProductId[p.id] ?? p.cost) }}
             </td>
-            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+            <td class="text-center text-muted" style="font-variant-numeric: tabular-nums;">
               {{ p.stock }}
             </td>
             <td class="text-center">
@@ -233,69 +283,91 @@ function addNewProduct() {
               </button>
             </td>
           </tr>
-          <tr>
-            <td>+</td>
-            <td>
-              <input
-                class="field-input"
-                type="text"
-                v-model="newProduct.name"
-                placeholder="Tên sản phẩm mới"
-              />
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                v-model.number="newProduct.packSize"
-              />
-            </td>
-            <td>
-              <span class="text-muted" style="font-size: 12px;">Thêm hình sau</span>
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                v-model.number="newProduct.price"
-              />
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                v-model.number="newProduct.cost"
-                disabled
-              />
-            </td>
-            <td>
-              <input
-                class="number-input"
-                type="number"
-                step="1"
-                min="0"
-                v-model.number="newProduct.stock"
-                disabled
-              />
-            </td>
-            <td class="text-center">
-              <button type="button" class="btn btn-primary btn-s" @click="addNewProduct">
-                Thêm
-              </button>
-            </td>
-          </tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="card" style="margin-top: 16px;">
+  <div class="products-right">
+    <section class="card card-add-new">
+      <div class="card-add-new-header">
+        <h3 style="margin: 0; font-size: 14px;">Thêm sản phẩm mới</h3>
+        <button
+          type="button"
+          class="btn btn-primary btn-s"
+          :disabled="!canAddAny"
+          @click="addAllNewProducts"
+        >
+          Thêm
+        </button>
+      </div>
+      <div class="add-new-table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th>Tên hàng</th>
+              <th style="width: 80px;" class="text-center">SL/thùng</th>
+              <th style="width: 120px;" class="text-center">Hình ảnh</th>
+              <th style="width: 110px;" class="text-center">Giá bán</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, index) in newProducts" :key="index">
+              <td>{{ index + 1 }}</td>
+              <td>
+                <input
+                  class="field-input"
+                  type="text"
+                  v-model="row.name"
+                  placeholder="Tên sản phẩm mới"
+                />
+              </td>
+              <td>
+                <input
+                  class="number-input"
+                  type="number"
+                  step="1"
+                  min="0"
+                  v-model.number="row.packSize"
+                />
+              </td>
+              <td>
+                <div
+                  class="drop-zone"
+                  @dragover="handleDragOver"
+                  @dragleave="handleDragLeave"
+                  @drop="handleDropNewProduct($event, index)"
+                >
+                  <div v-if="row.image">
+                    <img
+                      :src="'/images/' + row.image"
+                      alt=""
+                      style="width: 54px; height: 54px; object-fit: cover; border-radius: 6px;"
+                    />
+                  </div>
+                  <div v-else>
+                    Kéo & thả ảnh vào đây
+                  </div>
+                </div>
+              </td>
+              <td>
+                <input
+                  class="number-input"
+                  type="text"
+                  inputmode="numeric"
+                  :value="row.price === null ? '' : row.price"
+                  placeholder=""
+                  @input="onNewRowPriceChange(index, ($event.target as HTMLInputElement).value)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
     <div
       class="card-header-toggle"
       role="button"
@@ -313,11 +385,11 @@ function addNewProduct() {
           <tr>
             <th style="width: 50px;">STT</th>
             <th>Tên hàng</th>
-            <th style="width: 90px;" class="text-center">SL/thùng</th>
+            <th style="width: 80px;" class="text-center">SL/thùng</th>
             <th style="width: 120px;" class="text-center">Hình ảnh</th>
             <th style="width: 110px;" class="text-center">Giá bán</th>
-            <th style="width: 110px;" class="text-center">Giá vốn</th>
-            <th style="width: 110px;" class="text-center">Tồn kho</th>
+            <th style="width: 80px;" class="text-center">Giá vốn</th>
+            <th style="width: 80px;" class="text-center">Tồn kho</th>
             <th style="width: 80px;" class="text-center">Thao tác</th>
           </tr>
         </thead>
@@ -376,7 +448,7 @@ function addNewProduct() {
             <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
               {{ formatMoneyInput(lastImportCostPerUnitByProductId[p.id] ?? p.cost) }}
             </td>
-            <td class="text-right text-muted" style="font-variant-numeric: tabular-nums;">
+            <td class="text-center text-muted" style="font-variant-numeric: tabular-nums;">
               {{ p.stock }}
             </td>
             <td class="text-center">
@@ -394,9 +466,49 @@ function addNewProduct() {
       </table>
     </div>
   </section>
+  </div>
+  </div>
 </template>
 
 <style scoped>
+.products-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .products-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.products-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card-add-new-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.card-add-new-header .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.card-add-new .add-new-table-wrapper {
+  overflow: hidden;
+}
+.card-selling {
+  display: flex;
+  flex-direction: column;
+}
+.card-selling .products-table-wrapper {
+  overflow: auto;
+  min-height: 0;
+}
 .card-header-toggle {
   display: flex;
   justify-content: space-between;
