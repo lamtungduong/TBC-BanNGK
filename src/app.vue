@@ -20,15 +20,16 @@ watch(
       clearInterval(elapsedTimer)
       elapsedTimer = null
     }
-    if (isProcessing && processingStartTime) {
-      const start = processingStartTime
+    const startTime = processingStartTime.value
+    const lastDuration = lastLoadDurationMs.value
+    if (isProcessing.value && startTime != null) {
       const update = () => {
-        loadTimeDisplay.value = formatDuration(Date.now() - start)
+        loadTimeDisplay.value = formatDuration(Date.now() - startTime)
       }
       update()
       elapsedTimer = setInterval(update, 100)
-    } else if (lastLoadDurationMs != null) {
-      loadTimeDisplay.value = formatDuration(lastLoadDurationMs)
+    } else if (lastDuration != null) {
+      loadTimeDisplay.value = formatDuration(lastDuration)
     } else {
       loadTimeDisplay.value = ''
     }
