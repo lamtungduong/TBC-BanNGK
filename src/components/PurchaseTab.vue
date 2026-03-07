@@ -51,7 +51,7 @@ function updateCases(row: PurchaseRow, delta: number) {
 
 function productImageUrl(product: Product) {
   if (!product.image) return ''
-  return `/images/${product.image}`
+  return product.image.startsWith('http') ? product.image : `/images/${product.image}`
 }
 
 const totalAmount = computed(() =>

@@ -54,7 +54,7 @@ const filteredSales = computed(() => {
 
 function productImageUrl(p: Product) {
   if (!p.image) return ''
-  return `/images/${p.image}`
+  return p.image.startsWith('http') ? p.image : `/images/${p.image}`
 }
 
 function displayMoney(v: number) {

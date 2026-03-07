@@ -12,7 +12,7 @@ function displayPrice(value: number) {
 
 function productImageUrl(p: Product) {
   if (!p.image) return ''
-  return `/images/${p.image}`
+  return p.image.startsWith('http') ? p.image : `/images/${p.image}`
 }
 
 function onDragStart(e: DragEvent, productId: number) {

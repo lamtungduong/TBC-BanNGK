@@ -109,7 +109,7 @@ function handleDrop(e: DragEvent, product: Product) {
 
     const fileName = product.name ? `${product.name}.png` : `product-${product.id}.png`
 
-    const res = await $fetch<{ fileName: string }>('/api/upload-image', {
+    const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
       method: 'POST',
       body: {
         fileName,
@@ -117,7 +117,7 @@ function handleDrop(e: DragEvent, product: Product) {
       }
     })
 
-    product.image = res.fileName
+    product.image = res.url ?? res.fileName
     scheduleSave()
   }
   reader.readAsDataURL(file)
@@ -144,18 +144,23 @@ function handleDropNewProduct(e: DragEvent, index: number) {
     if (!base64.startsWith('data:')) return
     const row = newProducts[index]
     const fileName = row.name ? `${row.name.trim()}.png` : `new-product-${index + 1}.png`
-    const res = await $fetch<{ fileName: string }>('/api/upload-image', {
+    const res = await $fetch<{ fileName: string; url?: string }>('/api/upload-image', {
       method: 'POST',
       body: { fileName, dataUrl: base64 }
     })
-    row.image = res.fileName
+    row.image = res.url ?? res.fileName
   }
   reader.readAsDataURL(file)
 }
 
 function productImageUrl(product: Product) {
   if (!product.image) return ''
-  return `/images/${product.image}`
+  return product.image.startsWith('http') ? product.image : `/images/${product.image}`
+}
+
+function imageUrl(img: string) {
+  if (!img) return ''
+  return img.startsWith('http') ? img : `/images/${img}`
 }
 
 function hideProduct(p: Product) {
@@ -372,7 +377,7 @@ function addAllNewProducts() {
                 >
                   <div v-if="row.image">
                     <img
-                      :src="'/images/' + row.image"
+                      :src="imageUrl(row.image)"
                       alt=""
                       style="width: 54px; height: 54px; object-fit: cover; border-radius: 6px;"
                     />
