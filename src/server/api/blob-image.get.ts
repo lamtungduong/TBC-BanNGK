@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
 
   event.node.res.setHeader('Content-Type', result.blob.contentType || 'image/png')
   event.node.res.setHeader('X-Content-Type-Options', 'nosniff')
-  event.node.res.setHeader('Cache-Control', 'private, max-age=86400')
+  event.node.res.setHeader('Cache-Control', 'private, no-cache')
 
   const nodeStream = Readable.fromWeb(result.stream)
   return sendStream(event, nodeStream)
