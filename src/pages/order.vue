@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Product } from '~/composables/usePosStore'
 
 const {
@@ -43,6 +43,9 @@ function selectedQty(productId: number) {
 
 const qrAmount = computed(() => String(cartTotal.value || 0))
 
+let lastTouchEnd = 0
+let touchEndHandler: ((event: TouchEvent) => void) | null = null
+
 function goNext() {
   if (!cartLines.value.length) return
   step.value = 2
@@ -55,6 +58,25 @@ function cancelOrder() {
 
 onMounted(() => {
   loadData()
+
+  if (typeof window !== 'undefined' && 'navigator' in window && 'maxTouchPoints' in navigator && navigator.maxTouchPoints > 1) {
+    touchEndHandler = (event: TouchEvent) => {
+      const now = Date.now()
+      if (now - lastTouchEnd <= 300) {
+        event.preventDefault()
+      }
+      lastTouchEnd = now
+    }
+
+    document.addEventListener('touchend', touchEndHandler, { passive: false })
+  }
+})
+
+onBeforeUnmount(() => {
+  if (touchEndHandler) {
+    document.removeEventListener('touchend', touchEndHandler)
+    touchEndHandler = null
+  }
 })
 </script>
 
@@ -65,9 +87,20 @@ onMounted(() => {
       v-if="step === 1"
       class="card order-card"
     >
-      <h3 class="order-card-title">
-        Chọn sản phẩm
-      </h3>
+      <div class="order-card-header">
+        <h3 class="order-card-title">
+          Chọn sản phẩm
+        </h3>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :class="{ disabled: !cartLines.length }"
+          :disabled="!cartLines.length"
+          @click="goNext"
+        >
+          Tiếp theo
+        </button>
+      </div>
       <div class="order-product-list">
         <button
           v-for="p in namedProducts"
@@ -93,9 +126,25 @@ onMounted(() => {
               <span class="order-product-price">
                 {{ displayPrice(p.price) }} đ
               </span>
-              <span class="order-product-qty">
-                Số lượng: {{ selectedQty(p.id) }}
-              </span>
+              <div class="order-product-qty-row">
+                <button
+                  type="button"
+                  class="btn btn-default btn-xs"
+                  @click.stop="updateCartQty(p.id, -1)"
+                >
+                  -
+                </button>
+                <span class="order-product-qty-value">
+                  {{ selectedQty(p.id) }}
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-default btn-xs"
+                  @click.stop="addToCart(p.id)"
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
         </button>
@@ -107,18 +156,6 @@ onMounted(() => {
           Chưa có sản phẩm. Vào tab <b>Sản phẩm</b> để khai báo.
         </div>
       </div>
-
-      <div class="order-card-footer">
-        <button
-          type="button"
-          class="btn btn-primary"
-          :class="{ disabled: !cartLines.length }"
-          :disabled="!cartLines.length"
-          @click="goNext"
-        >
-          Tiếp theo
-        </button>
-      </div>
     </section>
 
     <!-- Card 2: Đơn hàng -->
@@ -126,9 +163,18 @@ onMounted(() => {
       v-else
       class="card order-card"
     >
-      <h3 class="order-card-title">
-        Đơn hàng
-      </h3>
+      <div class="order-card-header">
+        <h3 class="order-card-title">
+          Đơn hàng
+        </h3>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          @click="cancelOrder"
+        >
+          Hủy bỏ
+        </button>
+      </div>
 
       <div class="order-cart-table-wrapper">
         <table class="table">
@@ -170,7 +216,7 @@ onMounted(() => {
                 <div class="order-qty-control">
                   <button
                     type="button"
-                    class="btn btn-ghost btn-xs"
+                    class="btn btn-default btn-xs"
                     @click="updateCartQty(line.productId, -1)"
                   >
                     -
@@ -180,7 +226,7 @@ onMounted(() => {
                   </span>
                   <button
                     type="button"
-                    class="btn btn-ghost btn-xs"
+                    class="btn btn-default btn-xs"
                     @click="updateCartQty(line.productId, 1)"
                   >
                     +
@@ -204,7 +250,7 @@ onMounted(() => {
       </div>
 
       <div class="order-summary">
-        <div>
+        <div class="order-summary-content">
           <div class="order-summary-label">
             Tổng tiền hàng
           </div>
@@ -222,16 +268,6 @@ onMounted(() => {
           :src="`https://img.vietqr.io/image/TPB-01720825555-qr_only.png?amount=${qrAmount}`"
           alt="QR thanh toán"
         >
-      </div>
-
-      <div class="order-card-footer">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          @click="cancelOrder"
-        >
-          Hủy bỏ
-        </button>
       </div>
     </section>
   </div>
@@ -265,6 +301,14 @@ onMounted(() => {
   min-height: 0;
 }
 
+.order-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
 .order-card-title {
   margin: 0 0 8px;
   font-size: 14px;
@@ -287,7 +331,7 @@ onMounted(() => {
   background: white;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 4px;
   cursor: pointer;
   text-align: center;
@@ -308,6 +352,7 @@ onMounted(() => {
   justify-content: center;
   font-size: 10px;
   color: #6b7280;
+  margin: 0 auto;
 }
 
 .order-product-thumb img {
@@ -321,6 +366,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  justify-content: space-between;
 }
 
 .order-product-name {
@@ -342,6 +389,22 @@ onMounted(() => {
 
 .order-product-qty {
   color: #374151;
+}
+
+.order-product-qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.order-product-qty-label {
+  color: #6b7280;
+}
+
+.order-product-qty-value {
+  min-width: 20px;
+  text-align: center;
 }
 
 .order-empty-products {
@@ -377,8 +440,12 @@ onMounted(() => {
 .order-summary {
   margin-top: 8px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
+}
+
+.order-summary-content {
+  text-align: right;
 }
 
 .order-summary-label {

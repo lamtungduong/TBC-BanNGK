@@ -47,7 +47,7 @@ onUnmounted(() => {
 
 <template>
   <div class="app-root" :class="{ 'is-processing': showProcessingOverlay }">
-    <header class="app-header">
+    <header class="app-header" :class="{ 'app-header-order': isOrderPage }">
       <template v-if="isOrderPage">
         <div class="app-title">
           The Barbell Club - Fridge Self-checkout

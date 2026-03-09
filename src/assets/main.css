@@ -39,6 +39,14 @@ body {
   font-size: 18px;
 }
 
+.app-header-order {
+  padding: 6px 14px;
+}
+
+.app-header-order .app-title {
+  font-size: 14px;
+}
+
 .app-header .tab-bar {
   background: rgba(255, 255, 255, 0.2);
   margin-bottom: 0;
@@ -663,5 +671,58 @@ body {
 
 .mt-4 {
   margin-top: 16px;
+}
+
+/* Password gate cho trang "/" */
+.password-gate {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-gate-card {
+  width: 100%;
+  max-width: 360px;
+  background: white;
+  border-radius: 14px;
+  padding: 20px 18px 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+  border: 1px solid #e5e7eb;
+}
+
+.password-gate-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.password-gate-subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.password-gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.password-gate-input {
+  font-size: 14px;
+}
+
+.password-gate-error {
+  margin: 0;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+.password-gate-button {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
 }
 
