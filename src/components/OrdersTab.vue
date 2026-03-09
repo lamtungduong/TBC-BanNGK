@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import type { Sale, Product } from '~/composables/usePosStore'
+import type { Sale, SaleItem } from '~/composables/usePosStore'
 import { usePosStore } from '~/composables/usePosStore'
 
 const { sales, products, namedProducts, deleteSale, updateSale } = usePosStore()
@@ -99,17 +99,17 @@ const editingTotal = computed(() =>
 
 function startEdit(sale: Sale) {
   editingSaleId.value = sale.id
-  editingLines.value = sale.items.map((item) => {
-    const product =
-      namedProducts.value.find((p) => p.id === item.productId) ||
-      products.value.find((p) => p.id === item.productId)
-    const name = product?.name || `Mã ${item.productId}`
+  const itemByProductId = new Map<number, SaleItem>(
+    sale.items.map((item) => [item.productId, item])
+  )
+  editingLines.value = products.value.map((product) => {
+    const item: SaleItem | undefined = itemByProductId.get(product.id)
     return {
-      productId: item.productId,
-      name,
-      price: item.price,
-      cost: item.cost,
-      qty: item.qty
+      productId: product.id,
+      name: product.name || `Mã ${product.id}`,
+      price: item ? item.price : product.price,
+      cost: item ? item.cost : product.cost,
+      qty: item ? item.qty : 0
     }
   })
 
@@ -124,22 +124,18 @@ function startEdit(sale: Sale) {
 function updateEditingQty(productId: number, delta: number) {
   const line = editingLines.value.find((l) => l.productId === productId)
   if (!line) return
-  line.qty += delta
-  if (line.qty <= 0) {
-    editingLines.value = editingLines.value.filter(
-      (l) => l.productId !== productId
-    )
-  }
+  line.qty = Math.max(0, line.qty + delta)
 }
 
 async function handleSaveEdit() {
-  if (!editingSaleId.value || !editingLines.value.length) return
+  if (!editingSaleId.value) return
   if (isSavingEdit.value) return
+  const itemsToSave = editingLines.value.filter((line) => line.qty > 0)
   isSavingEdit.value = true
   try {
     await updateSale(
       editingSaleId.value,
-      editingLines.value.map((line) => ({
+      itemsToSave.map((line) => ({
         productId: line.productId,
         qty: line.qty,
         price: line.price,
@@ -192,11 +188,11 @@ async function handleSaveEdit() {
           <thead>
             <tr>
               <th style="width: 60px;">ID</th>
-              <th style="width: 180px;">Thời gian</th>
+              <th style="width: 90px;">Thời gian</th>
               <th>Hàng hóa</th>
               <th class="text-right">Doanh thu</th>
               <th class="text-right">Lợi nhuận gộp</th>
-              <th style="width: 110px;">Thao tác</th>
+              <th style="width: 110px;" class="text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -248,7 +244,7 @@ async function handleSaveEdit() {
 
     <section class="card" id="order-edit-card">
       <h3 style="margin: 0 0 8px; font-size: 14px;">Chỉnh sửa đơn hàng</h3>
-      <div v-if="!editingLines.length" class="text-muted" style="font-size: 13px;">
+      <div v-if="editingSaleId === null" class="text-muted" style="font-size: 13px;">
         Chọn một đơn hàng ở bảng bên cạnh để chỉnh sửa.
       </div>
       <div
@@ -277,6 +273,7 @@ async function handleSaveEdit() {
                   <button
                     type="button"
                     class="btn btn-ghost btn-xs"
+                    :disabled="line.qty <= 0"
                     @click="updateEditingQty(line.productId, -1)"
                   >
                     -
@@ -302,7 +299,7 @@ async function handleSaveEdit() {
       </div>
 
       <div
-        v-if="editingLines.length"
+        v-if="editingSaleId !== null"
         class="checkout-summary"
         style="margin-top: 8px;"
       >
@@ -316,8 +313,8 @@ async function handleSaveEdit() {
           <button
             type="button"
             class="btn btn-primary"
-            :class="{ disabled: !editingLines.length || isSavingEdit }"
-            :disabled="!editingLines.length || isSavingEdit"
+            :class="{ disabled: isSavingEdit }"
+            :disabled="isSavingEdit"
             @click="handleSaveEdit"
           >
             Sửa đơn
