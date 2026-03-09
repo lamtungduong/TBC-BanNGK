@@ -14,7 +14,7 @@ const { loadData } = usePosStore()
  */
 const ENABLE_LAN_REDIRECT = true
 const VERCEL_HOST = 'tbc-fnb.vercel.app'
-const LAN_ORIGIN = 'http://192.168.10.197:3000'
+const LAN_ORIGIN = 'http://192.168.10.79:3000'
 
 async function checkAndRedirectToLan() {
   if (!ENABLE_LAN_REDIRECT) return
