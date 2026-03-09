@@ -6,13 +6,18 @@ const { loadData } = usePosStore()
  * Nếu đang chạy trên domain Vercel (B) và client trong LAN truy cập
  * được máy chủ nội bộ (A), thì tự động redirect về (A).
  *
+ * Bạn có thể bật/tắt tính năng này bằng cách đổi
+ * giá trị ENABLE_LAN_REDIRECT bên dưới.
+ *
  * Lưu ý: Check này phải chạy trên trình duyệt, vì server Vercel
- * không truy cập được IP LAN 192.168.x.x.
+ * không truy cập được IP LAN 192.168.10.x.
  */
+const ENABLE_LAN_REDIRECT = true
 const VERCEL_HOST = 'tbc-fnb.vercel.app'
 const LAN_ORIGIN = 'http://192.168.10.197:3000'
 
 async function checkAndRedirectToLan() {
+  if (!ENABLE_LAN_REDIRECT) return
   if (import.meta.server) return
 
   const currentHost = window.location.hostname
