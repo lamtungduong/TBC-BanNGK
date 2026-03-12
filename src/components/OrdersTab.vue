@@ -40,11 +40,11 @@ function displayMoney(v: number) {
 function formatTime(ts: string) {
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
+  const yyyy = d.getUTCFullYear()
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const mi = String(d.getUTCMinutes()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
 }
 

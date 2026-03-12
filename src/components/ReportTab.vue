@@ -67,15 +67,15 @@ function displayMoney(v: number) {
 }
 
 function getStartOfDay(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
 }
 
 function getStartOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1))
 }
 
 function getStartOfYear(d: Date) {
-  return new Date(d.getFullYear(), 0, 1)
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
 }
 
 function calcRevenueAndProfit(sale: Sale) {
