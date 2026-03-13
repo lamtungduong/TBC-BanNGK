@@ -73,7 +73,7 @@ provide('isDesktop', isDesktop)
         >
           Page load time:
           <span v-if="lastLoadDurationMs < 1000">
-            {{ lastLoadDurationMs.toString().padStart(3, '0') }}ms
+            {{ lastLoadDurationMs }}ms
           </span>
           <span v-else>
             {{ (lastLoadDurationMs / 1000).toFixed(2) }}s
