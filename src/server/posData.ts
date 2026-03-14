@@ -19,31 +19,10 @@ function getNowGMT7(): string {
   return `${y}-${pad(m)}-${pad(day)} ${pad(h)}:${pad(mi)}:${pad(s)}`
 }
 
-/** Format Date (UTC instant từ DB) sang chuỗi GMT+7 "YYYY-MM-DD HH:mm:ss" cho API. */
-function formatDateToGMT7(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const local = new Date(
-    d.getTime() + d.getTimezoneOffset() * 60000 + GMT7_OFFSET_MINUTES * 60000
-  )
-  const y = local.getUTCFullYear()
-  const m = local.getUTCMonth() + 1
-  const day = local.getUTCDate()
-  const h = local.getUTCHours()
-  const mi = local.getUTCMinutes()
-  const s = local.getUTCSeconds()
-  return `${y}-${pad(m)}-${pad(day)} ${pad(h)}:${pad(mi)}:${pad(s)}`
-}
-
-/** Chuỗi timestamp từ client/API (GMT+7 "YYYY-MM-DD HH:mm:ss") sang giá trị cho PostgreSQL timestamptz. */
-function toTimestampTz(ts: string): string {
-  if (
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(ts) &&
-    !ts.includes('Z') &&
-    !/[-+]\d{2}:?\d{2}$/.test(ts)
-  ) {
-    return ts + '+07'
-  }
-  return ts
+/** Chuỗi timestamp từ DB (literal "YYYY-MM-DD HH:mm:ss") - cắt bớt phần lẻ giây nếu có. */
+function timestampLiteralFromDb(raw: string): string {
+  const s = raw.trim()
+  return s.length > 19 ? s.slice(0, 19) : s
 }
 
 /** Chạy DDL một lần khi khởi động; tránh chạy mỗi lần getPosData() gây lock và chậm. */
@@ -74,9 +53,12 @@ async function ensureSchema(): Promise<void> {
     await query(`
       CREATE TABLE IF NOT EXISTS sales (
         id INTEGER PRIMARY KEY,
-        timestamp TIMESTAMPTZ NOT NULL
+        timestamp TIMESTAMP NOT NULL
       )
     `)
+    await query(`
+      ALTER TABLE sales ALTER COLUMN timestamp TYPE TIMESTAMP USING (timestamp AT TIME ZONE 'UTC')
+    `).catch(() => {})
     await query(`
       CREATE TABLE IF NOT EXISTS sale_items (
         id SERIAL PRIMARY KEY,
@@ -90,9 +72,12 @@ async function ensureSchema(): Promise<void> {
     await query(`
       CREATE TABLE IF NOT EXISTS stock_imports (
         id INTEGER PRIMARY KEY,
-        timestamp TIMESTAMPTZ NOT NULL
+        timestamp TIMESTAMP NOT NULL
       )
     `)
+    await query(`
+      ALTER TABLE stock_imports ALTER COLUMN timestamp TYPE TIMESTAMP USING (timestamp AT TIME ZONE 'UTC')
+    `).catch(() => {})
     await query(`
       CREATE TABLE IF NOT EXISTS stock_import_items (
         id SERIAL PRIMARY KEY,
@@ -206,8 +191,8 @@ async function getSalesOnly(): Promise<Sale[]> {
 
   const salesResult = await query<{
     id: number
-    timestamp: Date
-  }>('SELECT id, timestamp FROM sales ORDER BY id ASC')
+    timestamp: string
+  }>('SELECT id, timestamp::text AS timestamp FROM sales ORDER BY id ASC')
 
   const saleItemsResult = await query<{
     sale_id: number
@@ -231,7 +216,7 @@ async function getSalesOnly(): Promise<Sale[]> {
 
   const sales: Sale[] = salesResult.rows.map((row) => ({
     id: row.id,
-    timestamp: formatDateToGMT7(row.timestamp),
+    timestamp: timestampLiteralFromDb(row.timestamp),
     items: itemsBySaleId.get(row.id) ?? []
   }))
 
@@ -241,8 +226,8 @@ async function getSalesOnly(): Promise<Sale[]> {
 async function getImportsOnly(): Promise<StockImport[]> {
   await ensureSchema()
 
-  const importsResult = await query<{ id: number; timestamp: Date }>(
-    'SELECT id, timestamp FROM stock_imports ORDER BY id ASC'
+  const importsResult = await query<{ id: number; timestamp: string }>(
+    'SELECT id, timestamp::text AS timestamp FROM stock_imports ORDER BY id ASC'
   )
   const importItemsResult = await query<{
     import_id: number
@@ -270,7 +255,7 @@ async function getImportsOnly(): Promise<StockImport[]> {
 
   const imports: StockImport[] = importsResult.rows.map((row) => ({
     id: row.id,
-    timestamp: formatDateToGMT7(row.timestamp),
+    timestamp: timestampLiteralFromDb(row.timestamp),
     items: itemsByImportId.get(row.id) ?? []
   }))
 
@@ -296,7 +281,7 @@ export async function saveFullPosData(data: PosData): Promise<void> {
     await client.query(`
       CREATE TABLE stock_imports (
         id INTEGER PRIMARY KEY,
-        timestamp TIMESTAMPTZ NOT NULL
+        timestamp TIMESTAMP NOT NULL
       )
     `)
     await client.query(`
@@ -340,9 +325,9 @@ export async function saveFullPosData(data: PosData): Promise<void> {
       await client.query(
         `
         INSERT INTO sales (id, timestamp)
-        VALUES ($1, $2::timestamptz)
+        VALUES ($1, $2)
       `,
-        [sale.id, toTimestampTz(sale.timestamp)]
+        [sale.id, sale.timestamp]
       )
 
       for (const item of sale.items) {
@@ -361,9 +346,9 @@ export async function saveFullPosData(data: PosData): Promise<void> {
       await client.query(
         `
         INSERT INTO stock_imports (id, timestamp)
-        VALUES ($1, $2::timestamptz)
+        VALUES ($1, $2)
       `,
-        [imp.id, toTimestampTz(imp.timestamp)]
+        [imp.id, imp.timestamp]
       )
       for (const item of imp.items) {
         await client.query(
@@ -399,9 +384,9 @@ export async function applyCheckout(
     await client.query(
       `
       INSERT INTO sales (id, timestamp)
-      VALUES ($1, $2::timestamptz)
+      VALUES ($1, $2)
     `,
-      [saleId, toTimestampTz(now)]
+      [saleId, now]
     )
 
     for (const item of items) {
@@ -480,8 +465,8 @@ export async function addImport(imp: StockImport): Promise<void> {
   await ensureSchema()
   await withTransaction(async (client: PoolClient) => {
     await client.query(
-      `INSERT INTO stock_imports (id, timestamp) VALUES ($1, $2::timestamptz)`,
-      [imp.id, toTimestampTz(imp.timestamp)]
+      `INSERT INTO stock_imports (id, timestamp) VALUES ($1, $2)`,
+      [imp.id, imp.timestamp]
     )
     for (const item of imp.items) {
       await client.query(
