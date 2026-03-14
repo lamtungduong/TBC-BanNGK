@@ -68,7 +68,7 @@ function submitPassword() {
 </script>
 
 <template>
-  <div>
+  <div class="admin-page">
     <div v-if="!isUnlocked" class="password-gate">
       <div class="password-gate-card">
         <h1 class="password-gate-title">Nhập mật khẩu</h1>
@@ -112,4 +112,11 @@ function submitPassword() {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Tắt double-tap zoom trên mobile để thao tác nút/bảng không bị zoom */
+.admin-page {
+  touch-action: manipulation;
+}
+</style>
 
