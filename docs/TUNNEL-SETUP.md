@@ -1,107 +1,110 @@
-# Cấu hình Cloudflare Tunnel + Vercel (chuyển hướng API)
+# Cloudflare Tunnel + Vercel — Hướng dẫn thực tế
 
-Khi user mở **https://tbc-fnb.vercel.app** (B), nếu tunnel tới server LAN (A) đang chạy và cấu hình đúng, mọi API và ảnh sẽ gọi qua tunnel — URL trình duyệt vẫn là Vercel.
+App TBC-FnB chạy ở **hai nơi**:
 
-## 1. Cloudflare Tunnel (bạn đã làm)
+- **(A) LAN:** Trên VM (vd. qua Portainer), truy cập: `http://tbc.fnb/admin` hoặc `http://IP:3000/admin`.
+- **(B) Vercel:** `https://tbc-fnb.vercel.app/admin`.
 
-- Tạo tunnel (vd. tên `tbc`), lấy token.
-- Add stack Cloudflare Tunnel trên Portainer (VM 100), nhập token.
+Khi user mở **(B)** từ trình duyệt, app tự kiểm tra: nếu **tunnel** tới (A) đang bật và reachable thì **mọi API và ảnh** sẽ gọi qua tunnel (nhanh, dùng data LAN), **URL thanh địa chỉ vẫn là Vercel**. Nếu tunnel tắt hoặc không tới được thì API gọi về chính Vercel (same-origin).
 
-## 2. Lấy URL public của tunnel
+---
 
-- Vào **Cloudflare Zero Trust Dashboard** → **Networks** → **Tunnels** → chọn tunnel `tbc`.
-- Trong **Published application routes** (hoặc mục cấu hình route tương đương), cấu hình:
-  - **Subdomain / Domain:** ví dụ `tbc-fnb` + `duongtunglam.com` → URL public: `https://tbc-fnb.duongtunglam.com`.
-  - **Service (Origin):** **HTTP**, URL **bắt buộc** phải trỏ tới nơi app TBC-FnB lắng nghe.
+## 1. Chuẩn bị Cloudflare Tunnel
 
-### Quan trọng: Origin khi cloudflared chạy trong Docker (Portainer)
+1. Vào **Cloudflare Zero Trust** (hoặc Cloudflare Dashboard) → **Networks** → **Tunnels**.
+2. Tạo tunnel mới (vd. tên `tbc`), chọn **Cloudflared** → lấy **Token**.
+3. Trên **Portainer (VM chạy app hoặc VM riêng):**
+   - Tạo stack mới (vd. từ [Cloudflare Tunnel template](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)).
+   - Dán token, deploy. Container **cloudflared** chạy và kết nối về Cloudflare.
 
-Cloudflared chạy **trong container** nên `localhost` trong container = chính container, **không** phải máy host. Nếu bạn để Service = `http://localhost:3000` sẽ bị lỗi:
+---
 
-```text
-Unable to reach the origin service ... dial tcp [::1]:3000: connect: connection refused
-```
+## 2. Cấu hình Published application route (URL public + Origin)
 
-- **Cách sửa:** Đổi Service (Origin) thành địa chỉ **host** từ trong Docker:
-  - Dùng **IP của VM 100** (máy chạy Portainer và app): `http://192.168.10.79:3000`
-  - Hoặc nếu Docker hỗ trợ: `http://host.docker.internal:3000` (một số môi trường có sẵn).
-- App TBC-FnB phải listen trên `0.0.0.0:3000` (hoặc bind port 3000 ra host) để container cloudflared gọi từ host IP được.
+1. Vào **Cloudflare Zero Trust** → **Networks** → **Tunnels** → chọn tunnel `tbc`.
+2. Mở tab **Published application routes**.
+3. Bấm **+ Add a published application route**.
+4. Điền:
+   - **Domain:** domain bạn đã add vào Cloudflare (vd. `duongtunglam.com`).
+   - **Subdomain:** vd. `tbc-fnb` → URL public sẽ là `https://tbc-fnb.duongtunglam.com`.
+   - **Path:** để `*` (tất cả đường dẫn).
+   - **Service (Origin):** **HTTP**, URL phải trỏ tới **máy + cổng** nơi app TBC-FnB đang lắng nghe.
 
-## 3. Cấu hình app
+### Origin khi cloudflared chạy trong Docker (Portainer)
 
-### Trên Vercel (build / runtime)
+Cloudflared chạy **trong container**, nên `localhost` trong container = chính container, **không** phải máy chạy app. **Không dùng** `http://localhost:3000`.
 
-Trong **Vercel** → Project → **Settings** → **Environment Variables** thêm:
+- Dùng **IP của máy chạy app TBC-FnB** (cùng LAN với máy chạy cloudflared):  
+  `http://192.168.10.201:3000` (thay đúng IP và port của bạn).
+- Nếu app và cloudflared cùng một máy: dùng IP của máy đó, vd. `http://192.168.10.79:3000`.
+- App phải listen `0.0.0.0:3000` (hoặc bind port 3000 ra host) để cloudflared gọi tới được.
 
-- **Name:** `NUXT_PUBLIC_TUNNEL_ORIGIN`
-- **Value:** URL public tunnel (vd. `https://tbc-fnb-lan.xxx.com`) — **không** có dấu `/` cuối.
-- Áp dụng cho: Production (và Preview nếu muốn).
+5. Lưu. Sẽ có thêm dòng **Catch-all rule: http_status:404** — đó là rule mặc định cho request không khớp hostname nào; **không ảnh hưởng** tới hostname bạn vừa thêm, không cần tắt.
 
-Rồi **Redeploy** để biến có hiệu lực.
+---
 
-### Trên VM 100 (khi chạy app qua Portainer)
+## 3. Cấu hình Vercel
 
-Nếu bạn build image và chạy container trên VM 100, **không cần** set `NUXT_PUBLIC_TUNNEL_ORIGIN` cho bản chạy trên LAN (truy cập qua `tbc.fnb` hoặc IP:3000). Biến này chỉ cần khi **frontend được serve từ Vercel** (để client biết gọi API qua tunnel).
+1. **Vercel** → Project TBC-FnB → **Settings** → **Environment Variables**.
+2. Thêm:
+   - **Name:** `NUXT_PUBLIC_TUNNEL_ORIGIN`
+   - **Value:** URL public tunnel, **không** có `/` cuối (vd. `https://tbc-fnb.duongtunglam.com`).
+   - Áp dụng: Production (và Preview nếu muốn).
+3. **Redeploy** để env có hiệu lực.
+
+Bản chạy trên LAN (tbc.fnb hoặc IP:3000) **không cần** biến này; chỉ bản frontend trên Vercel mới dùng để biết gọi API qua tunnel khi tunnel reachable.
+
+---
 
 ## 4. CORS
 
-Server LAN (app chạy trên VM 100) đã có middleware CORS (`src/server/middleware/0.cors.ts`) cho phép origin `https://tbc-fnb.vercel.app`. Không cần cấu hình thêm trên Cloudflare Tunnel cho CORS.
+App đã có middleware CORS (`src/server/middleware/0.cors.ts`) cho origin `https://tbc-fnb.vercel.app`. Không cần cấu hình thêm CORS trên Cloudflare Tunnel.
 
-## 5. Kiểm tra
+---
 
-1. Deploy lại bản Vercel đã set `NUXT_PUBLIC_TUNNEL_ORIGIN`.
-2. Đảm bảo tunnel trên Portainer đang chạy và public hostname trỏ đúng service (HTTP, port 3000).
+## 5. Kiểm tra khi chạy đúng
+
+1. Tunnel (container cloudflared) đang chạy trên Portainer.
+2. App TBC-FnB đang chạy và listen đúng port (vd. 3000) trên IP đã cấu hình trong Published application route.
 3. Mở **https://tbc-fnb.vercel.app/admin** (hoặc trang chủ).
-4. Mở DevTools → Network: request API và ảnh (vd. `/api/data/products`, `/api/blob-image?...`) phải gửi tới **URL tunnel** (origin của request = URL tunnel), còn thanh địa chỉ vẫn là `tbc-fnb.vercel.app`.
+4. F12 → **Network**: request tới `/api/data/products`, `/api/data/sales`, `/api/data/imports`, … phải có **Request URL** = `https://tbc-fnb.duongtunglam.com/api/...` và **Status 200**. Thanh địa chỉ trình duyệt vẫn là `tbc-fnb.vercel.app`.
 
-Nếu tunnel chưa chạy hoặc không reachable, app vẫn dùng API trên Vercel (same-origin).
-
----
-
-## 6. Xử lý lỗi 502 / "Unable to reach the origin service"
-
-**Triệu chứng:** Vercel load xong, nhưng API tới `https://tbc-fnb.duongtunglam.com/api/...` trả **502 Bad Gateway**. Log container cloudflared:
-
-```text
-Unable to reach the origin service ... originService=http://localhost:3000
-dial tcp [::1]:3000: connect: connection refused
-```
-
-**Nguyên nhân:** Origin đang cấu hình là `http://localhost:3000`. Trong container, `localhost` là bên trong container, không phải host nên cloudflared không tới được app.
-
-**Cách sửa:**
-
-1. Vào **Cloudflare Zero Trust** → **Networks** → **Tunnels** → tunnel `tbc`.
-2. Mở **Published application routes** → chọn route tương ứng (vd. `tbc-fnb.duongtunglam.com`) → **Edit** (hoặc nơi bạn sửa Service/Origin).
-3. Đổi **Service / Origin URL** từ `http://localhost:3000` thành:
-   - `http://192.168.10.79:3000` (thay bằng đúng IP của VM 100 nếu khác).
-4. Lưu. Cloudflare áp dụng cấu hình xuống cloudflared; vài giây sau thử lại Vercel.
-
-Sau khi đổi, request từ Vercel tới tunnel sẽ được cloudflared chuyển tiếp đúng tới app trên host và trả 200.
+Nếu tunnel tắt hoặc không tới được, app vẫn chạy nhưng API sẽ gọi về Vercel (same-origin).
 
 ---
 
-## 7. Root 200 nhưng /api/data/... vẫn 502 (hoặc CORS error)
+## 6. Xử lý lỗi thường gặp
 
-**Triệu chứng:** Request tới `https://tbc-fnb.duongtunglam.com/` (root) trả **200**, nhưng `https://tbc-fnb.duongtunglam.com/api/data/products` (và sales, imports) trả **502** hoặc trình duyệt báo **CORS error**. (502 từ gateway thường không kèm CORS header nên browser có thể hiển thị là CORS error.)
+### 502 / "Unable to reach the origin service" — log cloudflared: `connection refused` với `localhost:3000`
 
-**Catch-all rule `http_status:404`:** Đây là rule mặc định cho mọi request không khớp hostname nào — không ảnh hưởng tới `tbc-fnb.duongtunglam.com` vì request đã khớp rule đầu tiên. Không cần tắt.
+**Nguyên nhân:** Service (Origin) đang để `http://localhost:3000`. Trong container, localhost không phải máy chạy app.
+
+**Cách sửa:** Trong **Published application routes** → Edit route của `tbc-fnb.duongtunglam.com` → đổi **Service** thành `http://<IP-máy-chạy-app>:3000` (vd. `http://192.168.10.201:3000`). Lưu, đợi vài giây rồi thử lại.
+
+---
+
+### Root 200 nhưng /api/data/... trả 502 hoặc CORS error
+
+502 từ gateway thường không kèm CORS header nên trình duyệt có thể báo **CORS error**.
 
 **Cần kiểm tra:**
 
-1. **Origin có thực sự trả 200 cho /api không**  
-   Từ máy có thể truy cập được IP origin (vd. VM 100 hoặc máy trong cùng LAN), chạy:
+1. **Origin trả 200 cho /api:** Từ máy có thể truy cập IP origin (vd. trong LAN), chạy:
    ```bash
-   curl -i http://192.168.10.201:3000/api/data/products
+   curl -i http://<IP-origin>:3000/api/data/products
    ```
-   - Nếu **200** → app trên 192.168.10.201 đang chạy đúng; vấn đề nằm ở tunnel/Cloudflare (xem bước 2, 3).
-   - Nếu **lỗi / không nối được** → app trên 192.168.10.201 chưa chạy hoặc không listen đúng port; cần khởi động app và đảm bảo listen `0.0.0.0:3000`.
+   Nếu không 200 hoặc không kết nối được → app chưa chạy đúng hoặc sai IP/port; sửa app hoặc sửa Service trong Published application route cho đúng IP/port.
 
-2. **Log cloudflared lúc gửi request lỗi**  
-   Khi bạn mở trang Vercel và gọi API (sao cho F12 báo 502/CORS), xem log container **cloudflared-tunnel** trong Portainer. Nếu có dòng lỗi kiểu `Unable to reach the origin service` hoặc `connection refused` / `timeout` cho `http://192.168.10.201:3000` → cloudflared không kết nối được tới origin (firewall, sai IP, app tắt, hoặc app trên máy khác chưa bind đúng).
+2. **Log cloudflared:** Khi F12 báo 502, xem log container cloudflared trong Portainer. Nếu có `Unable to reach the origin service` hoặc `connection refused` / `timeout` → cloudflared không tới được origin (sai IP, firewall, app tắt).
 
-3. **Host header và timeout**  
-   Request qua tunnel thường giữ `Host: tbc-fnb.duongtunglam.com`. App Nuxt thường chấp nhận mọi Host. Nếu phía trước app có reverse proxy (NPM, Nginx) chỉ cho phép một vài host, cần cấu hình proxy cho phép host này hoặc bỏ kiểm tra host.  
-   Nếu `/api/data/products` xử lý chậm, Cloudflare có thể hết timeout và trả 502 — khi đó cần tăng timeout trong Cloudflare Tunnel (Origin Request / Timeout) hoặc tối ưu API.
+3. **Catch-all http_status:404:** Giữ nguyên; không ảnh hưởng tới hostname đã cấu hình.
 
-**Tóm tắt:** Đảm bảo app trên **192.168.10.201:3000** đang chạy và `curl http://192.168.10.201:3000/api/data/products` trả 200; sau đó xem log cloudflared khi 502 để biết lỗi kết nối hay timeout.
+---
+
+## Tóm tắt luồng
+
+| Bạn truy cập              | API / ảnh gửi tới        | Ghi chú                          |
+|---------------------------|--------------------------|-----------------------------------|
+| `tbc.fnb/admin` (LAN)     | `http://tbc.fnb/api/...` | Same-origin, không qua tunnel    |
+| `tbc-fnb.vercel.app/admin`| `https://tbc-fnb.duongtunglam.com/api/...` | Qua tunnel khi tunnel reachable |
+| `tbc-fnb.vercel.app/admin`| `https://tbc-fnb.vercel.app/api/...`      | Fallback khi tunnel không dùng được |
