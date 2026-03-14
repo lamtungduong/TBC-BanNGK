@@ -1,12 +1,35 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Product } from '~/composables/usePosStore'
 
-const { namedProducts, cartLines, cartTotal, noPayment, addToCart, updateCartQty, checkout, reorderProducts } =
+const { data, namedProducts, cartLines, cartTotal, noPayment, addToCart, updateCartQty, checkout, reorderProducts } =
   usePosStore()
 const { getApiUrl } = useApiOrigin()
 const blobImageVersions = useState<Record<string, number>>('pos-blob-image-versions', () => ({}))
 
 let dragProductId: number | null = null
+
+const qtyByProductId = computed<Record<number, number>>(() => {
+  const result: Record<number, number> = {}
+  for (const line of cartLines.value) {
+    result[line.productId] = line.qty
+  }
+  return result
+})
+
+function productStock(productId: number): number {
+  const p = data.value.products.find((x) => x.id === productId)
+  return p ? p.stock : 0
+}
+
+function isProductDisabled(p: Product): boolean {
+  const inCart = qtyByProductId.value[p.id] ?? 0
+  return p.stock === 0 || inCart >= p.stock
+}
+
+function isPlusDisabled(line: { productId: number; qty: number }): boolean {
+  return line.qty >= productStock(line.productId)
+}
 
 function displayPrice(value: number) {
   return value.toLocaleString('vi-VN')
@@ -68,7 +91,8 @@ function onDrop(e: DragEvent, dropIndex: number) {
           v-for="(p, index) in namedProducts"
           :key="p.id"
           class="product-item-wrap"
-          draggable="true"
+          :class="{ 'product-item-disabled': isProductDisabled(p) }"
+          :draggable="!isProductDisabled(p)"
           @dragstart="onDragStart($event, p.id)"
           @dragend="onDragEnd"
           @dragover="onDragOver"
@@ -77,7 +101,8 @@ function onDrop(e: DragEvent, dropIndex: number) {
           <button
             class="product-item-button"
             type="button"
-            @click="addToCart(p.id)"
+            :disabled="isProductDisabled(p)"
+            @click="!isProductDisabled(p) && addToCart(p.id)"
           >
             <div class="product-thumb">
               <img
@@ -147,7 +172,9 @@ function onDrop(e: DragEvent, dropIndex: number) {
                   <button
                     type="button"
                     class="btn btn-ghost btn-xs"
-                    @click="updateCartQty(line.productId, 1)"
+                    :disabled="isPlusDisabled(line)"
+                    :class="{ 'btn-disabled-muted': isPlusDisabled(line) }"
+                    @click="!isPlusDisabled(line) && updateCartQty(line.productId, 1)"
                   >
                     +
                   </button>
@@ -193,4 +220,17 @@ function onDrop(e: DragEvent, dropIndex: number) {
     </section>
   </div>
 </template>
+
+<style scoped>
+.product-item-wrap.product-item-disabled {
+  opacity: 0.55;
+}
+.product-item-wrap.product-item-disabled .product-item-button {
+  cursor: not-allowed;
+}
+.btn-disabled-muted {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+</style>
 

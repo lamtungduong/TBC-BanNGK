@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Product } from '~/composables/usePosStore'
 
 const {
+  data,
   namedProducts,
   cartLines,
   cartTotal,
@@ -44,6 +45,20 @@ const qtyByProductId = computed<Record<number, number>>(() => {
 
 function selectedQty(productId: number) {
   return qtyByProductId.value[productId] ?? 0
+}
+
+function productStock(productId: number): number {
+  const p = data.value.products.find((x) => x.id === productId)
+  return p ? p.stock : 0
+}
+
+function isProductDisabled(p: { id: number; stock: number }): boolean {
+  const inCart = selectedQty(p.id)
+  return p.stock === 0 || inCart >= p.stock
+}
+
+function isPlusDisabledInCart(line: { productId: number; qty: number }): boolean {
+  return line.qty >= productStock(line.productId)
 }
 
 const qrAmount = computed(() => String(cartTotal.value || 0))
@@ -121,7 +136,9 @@ onBeforeUnmount(() => {
           :key="p.id"
           type="button"
           class="order-product-item"
-          @click="addToCart(p.id)"
+          :class="{ 'order-product-item-disabled': isProductDisabled(p) }"
+          :disabled="isProductDisabled(p)"
+          @click="!isProductDisabled(p) && addToCart(p.id)"
         >
           <div class="order-product-thumb">
             <img
@@ -154,7 +171,9 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="btn btn-default btn-xs"
-                  @click.stop="addToCart(p.id)"
+                  :disabled="selectedQty(p.id) >= p.stock"
+                  :class="{ 'order-btn-plus-disabled': selectedQty(p.id) >= p.stock }"
+                  @click.stop="selectedQty(p.id) < p.stock && addToCart(p.id)"
                 >
                   +
                 </button>
@@ -241,7 +260,9 @@ onBeforeUnmount(() => {
                   <button
                     type="button"
                     class="btn btn-default btn-xs"
-                    @click="updateCartQty(line.productId, 1)"
+                    :disabled="isPlusDisabledInCart(line)"
+                    :class="{ 'order-btn-plus-disabled': isPlusDisabledInCart(line) }"
+                    @click="!isPlusDisabledInCart(line) && updateCartQty(line.productId, 1)"
                   >
                     +
                   </button>
@@ -353,6 +374,18 @@ onBeforeUnmount(() => {
 
 .order-product-item:hover {
   background: #f3f4f6;
+}
+
+.order-product-item-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.order-product-item-disabled:hover {
+  background: white;
+}
+.order-btn-plus-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .order-product-thumb {
