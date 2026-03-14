@@ -41,6 +41,7 @@ const totalTimeProfit = computed(() =>
 )
 
 const { sales, products } = usePosStore()
+const { getApiUrl } = useApiOrigin()
 
 const filteredSales = computed(() => {
   const list = sales.value
@@ -57,7 +58,7 @@ function productImageUrl(p: Product) {
   if (!p.image) return ''
   if (p.image.includes('private.blob.vercel-storage.com')) {
     const t = blobImageVersions.value[String(p.id)] ?? 0
-    return `/api/blob-image?url=${encodeURIComponent(p.image)}&_t=${t}`
+    return getApiUrl(`/api/blob-image?url=${encodeURIComponent(p.image)}&_t=${t}`)
   }
   return p.image.startsWith('http') ? p.image : ''
 }

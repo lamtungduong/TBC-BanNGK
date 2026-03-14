@@ -14,6 +14,7 @@ const {
   updateCartQty,
   clearCart
 } = usePosStore()
+const { ensureLanChecked } = useApiOrigin()
 
 const blobImageVersions = useState<Record<string, number>>('pos-blob-image-versions', () => ({}))
 
@@ -23,11 +24,12 @@ function displayPrice(value: number) {
   return value.toLocaleString('vi-VN')
 }
 
+const { getApiUrl } = useApiOrigin()
 function productImageUrl(p: Product) {
   if (!p.image) return ''
   if (p.image.includes('private.blob.vercel-storage.com')) {
     const t = blobImageVersions.value[String(p.id)] ?? 0
-    return `/api/blob-image?url=${encodeURIComponent(p.image)}&_t=${t}`
+    return getApiUrl(`/api/blob-image?url=${encodeURIComponent(p.image)}&_t=${t}`)
   }
   return p.image.startsWith('http') ? p.image : ''
 }
@@ -60,6 +62,7 @@ function cancelOrder() {
 }
 
 onMounted(async () => {
+  await ensureLanChecked()
   // Trang order chỉ cần dữ liệu tab Bán hàng -> load tối thiểu products
   await loadData('sale')
 

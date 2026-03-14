@@ -64,6 +64,7 @@ const EMPTY_DATA: PosData = {
 let pageLoadTimer: ReturnType<typeof setInterval> | null = null
 
 export const usePosStore = () => {
+  const { apiFetch } = useApiOrigin()
   const data = useState<PosData>('pos-data', () => structuredClone(EMPTY_DATA))
   const isLoaded = useState<boolean>('pos-loaded', () => false)
   const isProcessing = useState<boolean>('pos-processing', () => false)
@@ -204,7 +205,7 @@ export const usePosStore = () => {
       try {
         // 1) Luôn đảm bảo products trước (các tab khác phụ thuộc vào products)
         if (needProducts) {
-          const res = await $fetch<{ products: Product[] }>('/api/data/products')
+          const res = await apiFetch<{ products: Product[] }>('/api/data/products')
           let loadedProducts = (res.products ?? EMPTY_DATA.products).map((p) => ({
             ...p,
             isHidden: p.isHidden ?? false,
@@ -228,7 +229,7 @@ export const usePosStore = () => {
 
         // 2) Các phần còn lại chỉ load khi tab cần
         if (needSales) {
-          const res = await $fetch<{ sales: Sale[] }>('/api/data/sales')
+          const res = await apiFetch<{ sales: Sale[] }>('/api/data/sales')
           data.value = {
             ...data.value,
             sales: res.sales ?? []
@@ -237,7 +238,7 @@ export const usePosStore = () => {
         }
 
         if (needImports) {
-          const res = await $fetch<{ imports: StockImport[] }>(
+          const res = await apiFetch<{ imports: StockImport[] }>(
             '/api/data/imports'
           )
           const loadedImports = Array.isArray(res.imports) ? res.imports : []
@@ -287,7 +288,7 @@ export const usePosStore = () => {
 
       if (!hasLoadedProducts.value) {
         tasks.push(
-          $fetch<{ products: Product[] }>('/api/data/products')
+          apiFetch<{ products: Product[] }>('/api/data/products')
             .then((res) => {
               let loadedProducts = (res.products ?? EMPTY_DATA.products).map((p) => ({
                 ...p,
@@ -314,7 +315,7 @@ export const usePosStore = () => {
 
       if (!hasLoadedSales.value) {
         tasks.push(
-          $fetch<{ sales: Sale[] }>('/api/data/sales')
+          apiFetch<{ sales: Sale[] }>('/api/data/sales')
             .then((res) => {
               data.value = {
                 ...data.value,
@@ -328,7 +329,7 @@ export const usePosStore = () => {
 
       if (!hasLoadedImports.value) {
         tasks.push(
-          $fetch<{ imports: StockImport[] }>('/api/data/imports')
+          apiFetch<{ imports: StockImport[] }>('/api/data/imports')
             .then((res) => {
               const loadedImports = Array.isArray(res.imports) ? res.imports : []
               importsState.value = loadedImports
@@ -361,7 +362,7 @@ export const usePosStore = () => {
       ...p,
       displayOrder: i + 1
     }))
-    await $fetch('/api/data/products', {
+    await apiFetch('/api/data/products', {
       method: 'PATCH',
       body: { products: productsWithUniqueOrder }
     })
@@ -381,7 +382,7 @@ export const usePosStore = () => {
       sales: data.value.sales,
       imports: importsState.value
     }
-    await $fetch('/api/data', {
+    await apiFetch('/api/data', {
       method: 'POST',
       body: JSON.parse(JSON.stringify(payload))
     })
@@ -447,7 +448,7 @@ export const usePosStore = () => {
       product.stock = currentStock + item.qty
     }
     data.value.sales = data.value.sales.filter((s) => s.id !== id)
-    await $fetch(`/api/data/sales/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/data/sales/${id}`, { method: 'DELETE' })
     })
   }
 
@@ -466,7 +467,7 @@ export const usePosStore = () => {
     })
 
     try {
-      const result = await $fetch<PosData>('/api/checkout', {
+      const result = await apiFetch<PosData>('/api/checkout', {
         method: 'POST',
         body: {
           items: payloadItems
@@ -500,7 +501,7 @@ export const usePosStore = () => {
     if (!items.length) return
     return withProcessing(async () => {
     try {
-      const result = await $fetch<PosData>(`/api/data/sales/${saleId}`, {
+      const result = await apiFetch<PosData>(`/api/data/sales/${saleId}`, {
         method: 'PATCH',
         body: {
           items
@@ -570,7 +571,7 @@ export const usePosStore = () => {
       const id = nextImportId.value++
       const newImport = { id, timestamp, items: importItems }
       importsState.value = [...importsState.value, newImport]
-      await $fetch('/api/data/imports', {
+      await apiFetch('/api/data/imports', {
         method: 'POST',
         body: newImport
       })
@@ -599,7 +600,7 @@ export const usePosStore = () => {
       product.cost = Math.round(previousCostPerUnit)
     }
     importsState.value = importsState.value.filter((imp) => imp.id !== importId)
-    await $fetch(`/api/data/imports/${importId}`, { method: 'DELETE' })
+    await apiFetch(`/api/data/imports/${importId}`, { method: 'DELETE' })
     })
   }
 

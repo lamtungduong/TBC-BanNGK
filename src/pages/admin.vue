@@ -5,48 +5,7 @@ import { useCookie } from '#app'
 
 const activeTab = inject<Ref<'sale' | 'products' | 'purchase' | 'orders' | 'report'>>('activeTab')!
 const { loadData, prefetchAll } = usePosStore()
-
-/**
- * Nếu đang chạy trên domain Vercel (B) và client trong LAN truy cập
- * được máy chủ nội bộ (A), thì tự động redirect về (A).
- *
- * Bạn có thể bật/tắt tính năng này bằng cách đổi
- * giá trị ENABLE_LAN_REDIRECT bên dưới.
- *
- * Lưu ý: Check này phải chạy trên trình duyệt, vì server Vercel
- * không truy cập được IP LAN 192.168.10.x.
- */
-const ENABLE_LAN_REDIRECT = false
-const VERCEL_HOST = 'tbc-fnb.vercel.app'
-const LAN_ORIGIN = 'http://192.168.10.79:3000'
-
-async function checkAndRedirectToLan() {
-  if (!ENABLE_LAN_REDIRECT) return
-  if (import.meta.server) return
-
-  const currentHost = window.location.hostname
-
-  // Chỉ xử lý khi đang ở domain Vercel
-  if (currentHost !== VERCEL_HOST) return
-
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 2500)
-
-    // Dùng no-cors để chỉ kiểm tra kết nối mạng, không cần đọc response
-    await fetch(LAN_ORIGIN, {
-      mode: 'no-cors',
-      signal: controller.signal,
-    })
-
-    clearTimeout(timeoutId)
-
-    // Nếu request không lỗi -> coi như server LAN đang sống -> redirect
-    window.location.href = LAN_ORIGIN
-  } catch {
-    // Nếu không truy cập được LAN thì giữ nguyên trên Vercel
-  }
-}
+const { ensureLanChecked } = useApiOrigin()
 
 /**
  * Cấu hình mật khẩu cho trang "/"
@@ -68,8 +27,8 @@ const inputPassword = ref('')
 const passwordError = ref('')
 
 onMounted(async () => {
-  // Thử chuyển sang server LAN nếu có
-  checkAndRedirectToLan()
+  // Khi vào từ Vercel: nếu tunnel (LAN) reachable thì API/ảnh sẽ gọi qua tunnel, URL vẫn giữ Vercel
+  await ensureLanChecked()
 
   // Nếu cookie khớp với mật khẩu hiện tại thì cho vào thẳng
   if (accessCookie.value === `ok:${PASSWORD}`) {
