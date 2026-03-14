@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { Sale, SaleItem } from '~/composables/usePosStore'
 import { usePosStore } from '~/composables/usePosStore'
+import { parseTimestampAsGMT7 } from '~/utils/date'
 
 const { sales, products, namedProducts, deleteSale, updateSale } = usePosStore()
 
@@ -11,7 +12,8 @@ const currentPage = ref(1)
 const sortedSales = computed(() =>
   [...sales.value].sort(
     (a, b) =>
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      parseTimestampAsGMT7(b.timestamp).getTime() -
+      parseTimestampAsGMT7(a.timestamp).getTime()
   )
 )
 
@@ -37,7 +39,9 @@ function displayMoney(v: number) {
   return v.toLocaleString('vi-VN')
 }
 
+/** Hiển thị giờ đúng như trên DB (GMT+7 "YYYY-MM-DD HH:mm:ss"). */
 function formatTime(ts: string) {
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(ts)) return ts
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
   const yyyy = d.getUTCFullYear()

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Sale, Product } from '~/composables/usePosStore'
 import { usePosStore } from '~/composables/usePosStore'
+import { parseTimestampAsGMT7 } from '~/utils/date'
 
 type PaymentFilter = 'all' | 'paid' | 'unpaid'
 
@@ -164,7 +165,7 @@ const timeBuckets = computed(() => {
   const now = new Date()
   const allSales = filteredSales.value.map((s) => ({
     ...s,
-    date: new Date(s.timestamp)
+    date: parseTimestampAsGMT7(s.timestamp)
   }))
   const byDay = !selectedCardConfig.value || selectedCardConfig.value.timeMode === 'day'
 
@@ -269,7 +270,7 @@ const productBuckets = computed(() => {
   const now = new Date()
   const allSales = filteredSales.value.map((s) => ({
     ...s,
-    date: new Date(s.timestamp)
+    date: parseTimestampAsGMT7(s.timestamp)
   }))
 
   const dateFilter =
@@ -370,7 +371,7 @@ function sumFor(filter: (d: Date) => boolean) {
   let revenue = 0
   let profit = 0
   for (const s of filteredSales.value) {
-    const d = new Date(s.timestamp)
+    const d = parseTimestampAsGMT7(s.timestamp)
     if (!filter(d)) continue
     const r = calcRevenueAndProfit(s)
     revenue += r.revenue

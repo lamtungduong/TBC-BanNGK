@@ -76,16 +76,17 @@ function formatMoneyInput(v: number) {
   return v.toLocaleString('vi-VN')
 }
 
-function formatImportTimestamp(iso: string) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-
+/** Hiển thị giờ đúng như trên DB (GMT+7 "YYYY-MM-DD HH:mm:ss"). */
+function formatImportTimestamp(ts: string) {
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(ts)) return ts
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ts
   const year = d.getUTCFullYear()
   const month = String(d.getUTCMonth() + 1).padStart(2, '0')
   const day = String(d.getUTCDate()).padStart(2, '0')
   const hours = String(d.getUTCHours()).padStart(2, '0')
   const minutes = String(d.getUTCMinutes()).padStart(2, '0')
-  return `${year}/${month}/${day} ${hours}:${minutes}`
+  return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
 /** Lịch sử nhập hàng sắp xếp theo ID giảm dần: đơn mới (ID lớn) lên trên cùng. */

@@ -1,4 +1,21 @@
 import { computed } from 'vue'
+import { parseTimestampAsGMT7 } from '~/utils/date'
+
+/** Thời điểm hiện tại GMT+7, định dạng "YYYY-MM-DD HH:mm:ss" (đồng bộ với DB). */
+function getNowGMT7(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const gmt7 = new Date(
+    d.getTime() + d.getTimezoneOffset() * 60000 + 7 * 60 * 60000
+  )
+  const y = gmt7.getUTCFullYear()
+  const m = gmt7.getUTCMonth() + 1
+  const day = gmt7.getUTCDate()
+  const h = gmt7.getUTCHours()
+  const mi = gmt7.getUTCMinutes()
+  const s = gmt7.getUTCSeconds()
+  return `${y}-${pad(m)}-${pad(day)} ${pad(h)}:${pad(mi)}:${pad(s)}`
+}
 
 export type Product = {
   id: number
@@ -21,7 +38,7 @@ export type SaleItem = {
 
 export type Sale = {
   id: number
-  timestamp: string // ISO
+  timestamp: string // GMT+7 "YYYY-MM-DD HH:mm:ss"
   items: SaleItem[]
 }
 
@@ -129,7 +146,9 @@ export const usePosStore = () => {
   const lastImportCostPerUnitByProductId = computed(() => {
     const result: Record<number, number> = {}
     const list = [...importsState.value].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      (a, b) =>
+      parseTimestampAsGMT7(b.timestamp).getTime() -
+      parseTimestampAsGMT7(a.timestamp).getTime()
     )
     for (const imp of list) {
       for (const item of imp.items) {
@@ -530,7 +549,7 @@ export const usePosStore = () => {
   ) {
     if (!items.length) return
     return withProcessing(async () => {
-    const timestamp = new Date().toISOString()
+    const timestamp = getNowGMT7()
     const importItems: ImportItem[] = []
 
     for (const item of items) {

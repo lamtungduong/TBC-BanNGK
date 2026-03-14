@@ -1,6 +1,51 @@
 import type { PoolClient } from 'pg'
 import { query, withTransaction } from './utils/db'
 
+const GMT7_OFFSET_MINUTES = 7 * 60
+
+/** Lấy thời điểm hiện tại theo GMT+7, định dạng "YYYY-MM-DD HH:mm:ss" (để ghi DB và trả API). */
+function getNowGMT7(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const local = new Date(
+    d.getTime() + d.getTimezoneOffset() * 60000 + GMT7_OFFSET_MINUTES * 60000
+  )
+  const y = local.getUTCFullYear()
+  const m = local.getUTCMonth() + 1
+  const day = local.getUTCDate()
+  const h = local.getUTCHours()
+  const mi = local.getUTCMinutes()
+  const s = local.getUTCSeconds()
+  return `${y}-${pad(m)}-${pad(day)} ${pad(h)}:${pad(mi)}:${pad(s)}`
+}
+
+/** Format Date (UTC instant từ DB) sang chuỗi GMT+7 "YYYY-MM-DD HH:mm:ss" cho API. */
+function formatDateToGMT7(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const local = new Date(
+    d.getTime() + d.getTimezoneOffset() * 60000 + GMT7_OFFSET_MINUTES * 60000
+  )
+  const y = local.getUTCFullYear()
+  const m = local.getUTCMonth() + 1
+  const day = local.getUTCDate()
+  const h = local.getUTCHours()
+  const mi = local.getUTCMinutes()
+  const s = local.getUTCSeconds()
+  return `${y}-${pad(m)}-${pad(day)} ${pad(h)}:${pad(mi)}:${pad(s)}`
+}
+
+/** Chuỗi timestamp từ client/API (GMT+7 "YYYY-MM-DD HH:mm:ss") sang giá trị cho PostgreSQL timestamptz. */
+function toTimestampTz(ts: string): string {
+  if (
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(ts) &&
+    !ts.includes('Z') &&
+    !/[-+]\d{2}:?\d{2}$/.test(ts)
+  ) {
+    return ts + '+07'
+  }
+  return ts
+}
+
 /** Chạy DDL một lần khi khởi động; tránh chạy mỗi lần getPosData() gây lock và chậm. */
 let schemaReady: Promise<void> | null = null
 
@@ -186,7 +231,7 @@ async function getSalesOnly(): Promise<Sale[]> {
 
   const sales: Sale[] = salesResult.rows.map((row) => ({
     id: row.id,
-    timestamp: row.timestamp.toISOString(),
+    timestamp: formatDateToGMT7(row.timestamp),
     items: itemsBySaleId.get(row.id) ?? []
   }))
 
@@ -225,7 +270,7 @@ async function getImportsOnly(): Promise<StockImport[]> {
 
   const imports: StockImport[] = importsResult.rows.map((row) => ({
     id: row.id,
-    timestamp: row.timestamp.toISOString(),
+    timestamp: formatDateToGMT7(row.timestamp),
     items: itemsByImportId.get(row.id) ?? []
   }))
 
@@ -295,9 +340,9 @@ export async function saveFullPosData(data: PosData): Promise<void> {
       await client.query(
         `
         INSERT INTO sales (id, timestamp)
-        VALUES ($1, $2)
+        VALUES ($1, $2::timestamptz)
       `,
-        [sale.id, sale.timestamp]
+        [sale.id, toTimestampTz(sale.timestamp)]
       )
 
       for (const item of sale.items) {
@@ -316,9 +361,9 @@ export async function saveFullPosData(data: PosData): Promise<void> {
       await client.query(
         `
         INSERT INTO stock_imports (id, timestamp)
-        VALUES ($1, $2)
+        VALUES ($1, $2::timestamptz)
       `,
-        [imp.id, imp.timestamp]
+        [imp.id, toTimestampTz(imp.timestamp)]
       )
       for (const item of imp.items) {
         await client.query(
@@ -350,13 +395,13 @@ export async function applyCheckout(
     )
     const saleId = nextIdResult.rows[0]?.id ?? 1
 
-    const now = new Date().toISOString()
+    const now = getNowGMT7()
     await client.query(
       `
       INSERT INTO sales (id, timestamp)
-      VALUES ($1, $2)
+      VALUES ($1, $2::timestamptz)
     `,
-      [saleId, now]
+      [saleId, toTimestampTz(now)]
     )
 
     for (const item of items) {
@@ -435,8 +480,8 @@ export async function addImport(imp: StockImport): Promise<void> {
   await ensureSchema()
   await withTransaction(async (client: PoolClient) => {
     await client.query(
-      `INSERT INTO stock_imports (id, timestamp) VALUES ($1, $2)`,
-      [imp.id, imp.timestamp]
+      `INSERT INTO stock_imports (id, timestamp) VALUES ($1, $2::timestamptz)`,
+      [imp.id, toTimestampTz(imp.timestamp)]
     )
     for (const item of imp.items) {
       await client.query(
