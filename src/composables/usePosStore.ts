@@ -75,6 +75,8 @@ export type Vendor = {
   name: string
   phone: string
   note: string
+  minOrderCases?: number
+  leadTimeDays?: number
 }
 
 const EMPTY_DATA: PosData = {

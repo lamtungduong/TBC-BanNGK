@@ -112,11 +112,19 @@ async function ensureSchema(): Promise<void> {
         name TEXT NOT NULL DEFAULT '',
         phone TEXT NOT NULL DEFAULT '',
         note TEXT NOT NULL DEFAULT '',
+        min_order_cases INTEGER NOT NULL DEFAULT 5,
+        lead_time_days INTEGER NOT NULL DEFAULT 3,
         is_hidden BOOLEAN NOT NULL DEFAULT false
       )
     `)
     await query(`
       ALTER TABLE vendors ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT false
+    `).catch(() => {})
+    await query(`
+      ALTER TABLE vendors ADD COLUMN IF NOT EXISTS min_order_cases INTEGER NOT NULL DEFAULT 5
+    `).catch(() => {})
+    await query(`
+      ALTER TABLE vendors ADD COLUMN IF NOT EXISTS lead_time_days INTEGER NOT NULL DEFAULT 3
     `).catch(() => {})
 
     await query(`
@@ -191,6 +199,8 @@ export type Vendor = {
   name: string
   phone: string
   note: string
+  minOrderCases?: number
+  leadTimeDays?: number
   isHidden?: boolean
 }
 
@@ -341,13 +351,19 @@ async function getVendorsOnly(): Promise<Vendor[]> {
     name: string
     phone: string
     note: string
+    min_order_cases: number | null
+    lead_time_days: number | null
     is_hidden: boolean | null
-  }>('SELECT id, name, phone, note, is_hidden FROM vendors ORDER BY id ASC')
+  }>(
+    'SELECT id, name, phone, note, min_order_cases, lead_time_days, is_hidden FROM vendors ORDER BY id ASC'
+  )
   return result.rows.map((row) => ({
     id: row.id,
     name: row.name,
     phone: row.phone,
     note: row.note,
+    minOrderCases: row.min_order_cases ?? 5,
+    leadTimeDays: row.lead_time_days ?? 3,
     isHidden: row.is_hidden ?? false
   }))
 }

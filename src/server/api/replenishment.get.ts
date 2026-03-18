@@ -6,8 +6,8 @@ export default defineEventHandler(async (event) => {
   const historyDays = q.historyDays != null ? Number(q.historyDays) : undefined
   const maxZeroDaysAllowed =
     q.maxZeroDaysAllowed != null ? Number(q.maxZeroDaysAllowed) : undefined
-  const minVendorOrderCases =
-    q.minVendorOrderCases != null ? Number(q.minVendorOrderCases) : undefined
+  const minVendorOrderCasesDefault =
+    q.minVendorOrderCasesDefault != null ? Number(q.minVendorOrderCasesDefault) : undefined
 
   const { getPosData } = await import('../posData')
   const data = await getPosData()
@@ -18,8 +18,8 @@ export default defineEventHandler(async (event) => {
     maxZeroDaysAllowed: Number.isFinite(maxZeroDaysAllowed)
       ? maxZeroDaysAllowed
       : undefined,
-    minVendorOrderCases: Number.isFinite(minVendorOrderCases)
-      ? minVendorOrderCases
+    minVendorOrderCasesDefault: Number.isFinite(minVendorOrderCasesDefault)
+      ? minVendorOrderCasesDefault
       : undefined
   })
 

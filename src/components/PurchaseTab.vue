@@ -34,6 +34,7 @@ type ReplenishmentVendorOrder = {
   vendorName: string
   vendorPhone: string | null
   leadTimeDays: number
+  minOrderCases: number
   totalCases: number
   totalCost: number
   meetsMinOrder: boolean
@@ -169,9 +170,17 @@ const deletingId = ref<number | null>(null)
 const isVendorsCardCollapsed = ref(true)
 const selectedVendorId = ref<number | null>(null)
 
-const newVendor = reactive<{ name: string; phone: string; note: string }>({
+const newVendor = reactive<{
+  name: string
+  phone: string
+  minOrderCases: number
+  leadTimeDays: number
+  note: string
+}>({
   name: '',
   phone: '',
+  minOrderCases: 5,
+  leadTimeDays: 3,
   note: ''
 })
 
@@ -463,10 +472,14 @@ async function handleAddVendor() {
   await addVendor({
     name: newVendor.name.trim(),
     phone: newVendor.phone.trim(),
+    minOrderCases: newVendor.minOrderCases,
+    leadTimeDays: newVendor.leadTimeDays,
     note: newVendor.note.trim()
   })
   newVendor.name = ''
   newVendor.phone = ''
+  newVendor.minOrderCases = 5
+  newVendor.leadTimeDays = 3
   newVendor.note = ''
 }
 
@@ -474,6 +487,8 @@ async function handleVendorBlur(v: Vendor) {
   await updateVendor(v.id, {
     name: v.name,
     phone: v.phone,
+    minOrderCases: Number(v.minOrderCases ?? 5),
+    leadTimeDays: Number(v.leadTimeDays ?? 3),
     note: v.note
   })
 }
@@ -543,6 +558,8 @@ onMounted(() => {
                   <th style="width: 50px;">STT</th>
                   <th>Tên</th>
                   <th style="width: 120px;">SĐT</th>
+                  <th style="width: 140px;" class="text-right">SL nhập tối thiểu (thùng)</th>
+                  <th style="width: 160px;" class="text-right">Thời gian giao hàng (ngày)</th>
                   <th>Ghi chú</th>
                   <th style="width: 90px;">Thao tác</th>
                 </tr>
@@ -566,6 +583,26 @@ onMounted(() => {
                       v-model="v.phone"
                       class="table-input"
                       type="text"
+                      @blur="handleVendorBlur(v)"
+                    />
+                  </td>
+                  <td class="text-right">
+                    <input
+                      v-model.number="v.minOrderCases"
+                      class="table-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      @blur="handleVendorBlur(v)"
+                    />
+                  </td>
+                  <td class="text-right">
+                    <input
+                      v-model.number="v.leadTimeDays"
+                      class="table-input"
+                      type="number"
+                      min="0"
+                      step="1"
                       @blur="handleVendorBlur(v)"
                     />
                   </td>
@@ -612,6 +649,26 @@ onMounted(() => {
                       class="table-input"
                       type="text"
                       placeholder="SĐT"
+                    />
+                  </td>
+                  <td class="text-right">
+                    <input
+                      v-model.number="newVendor.minOrderCases"
+                      class="table-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="5"
+                    />
+                  </td>
+                  <td class="text-right">
+                    <input
+                      v-model.number="newVendor.leadTimeDays"
+                      class="table-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="3"
                     />
                   </td>
                   <td>
@@ -741,10 +798,10 @@ onMounted(() => {
             <tr>
               <th style="width: 90px;" class="text-center">Khẩn cấp</th>
               <th>Nhà cung cấp</th>
+              <th style="width: 140px;" class="text-right">Thời gian giao</th>
               <th style="width: 140px;">SĐT</th>
               <th style="width: 140px;" class="text-center">Nội dung đặt hàng</th>
               <th>Chi tiết đơn hàng đề xuất</th>
-              <th style="width: 140px;" class="text-right">Thời gian giao</th>
               <th style="width: 120px;" class="text-right">Tổng thùng</th>
               <th style="width: 160px;" class="text-right">Tổng tiền</th>
               <th style="width: 120px;">Thao tác</th>
@@ -753,16 +810,23 @@ onMounted(() => {
           <tbody>
             <tr v-for="o in (replenishment?.vendorOrders ?? [])" :key="o.vendorId">
               <td class="text-center">
-                {{ isEmergencyOrder(o) ? '✔' : '' }}
+                <span
+                  v-if="isEmergencyOrder(o)"
+                  class="emergency-check"
+                  aria-label="Khẩn cấp"
+                >
+                  ✔
+                </span>
               </td>
               <td>
                 <div style="font-weight: 600;">
                   {{ o.vendorName || (`NCC #${o.vendorId}`) }}
                 </div>
                 <div v-if="!o.meetsMinOrder" class="text-muted" style="font-size: 12px;">
-                  Chưa đạt tối thiểu 5 thùng/đơn (vẫn hiển thị để bạn cân nhắc)
+                  Chưa đạt tối thiểu {{ o.minOrderCases ?? 0 }} thùng/đơn (vẫn hiển thị để bạn cân nhắc)
                 </div>
               </td>
+              <td class="text-right">{{ o.leadTimeDays }} ngày</td>
               <td style="font-size: 13px;">
                 <div class="phone-cell">
                   <span>{{ formatPhoneDots(o.vendorPhone) }}</span>
@@ -853,7 +917,6 @@ onMounted(() => {
                   </span>
                 </div>
               </td>
-              <td class="text-right">{{ o.leadTimeDays }} ngày</td>
               <td class="text-right">{{ o.totalCases }}</td>
               <td class="text-right">{{ displayMoney(o.totalCost) }}</td>
               <td>
@@ -1090,6 +1153,14 @@ onMounted(() => {
   line-height: 1;
 }
 
+.emergency-check {
+  display: inline-block;
+  font-size: 150%;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1;
+}
+
 .vendors-card {
   padding: 8px 10px;
 }
@@ -1143,7 +1214,7 @@ onMounted(() => {
 .purchase-card {
   flex: 1;
   min-width: 0;
-  max-height: calc(100vh - 145px);
+  max-height: calc(100vh - 190px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1193,7 +1264,7 @@ onMounted(() => {
 .purchase-history-card {
   flex: 1;
   min-width: 0;
-  max-height: calc(100vh - 145px);
+  max-height: calc(100vh - 190px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

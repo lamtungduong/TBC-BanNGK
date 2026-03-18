@@ -42,6 +42,7 @@ export type ReplenishmentVendorOrder = {
   vendorName: string
   vendorPhone: string | null
   leadTimeDays: number
+  minOrderCases: number
   totalCases: number
   totalCost: number
   meetsMinOrder: boolean
@@ -289,14 +290,14 @@ export function recommendReplenishment(
     horizonDays?: number
     historyDays?: number
     maxZeroDaysAllowed?: number
-    minVendorOrderCases?: number
     leadTimeDefaultDays?: number
+    minVendorOrderCasesDefault?: number
   }
 ): ReplenishmentResult {
   const horizonDays = opts?.horizonDays ?? 30
   const historyDays = opts?.historyDays ?? 28
   const maxZeroDaysAllowed = opts?.maxZeroDaysAllowed ?? 2
-  const minVendorOrderCases = opts?.minVendorOrderCases ?? 5
+  const minVendorOrderCasesDefault = opts?.minVendorOrderCasesDefault ?? 5
   const leadTimeDefaultDays = opts?.leadTimeDefaultDays ?? 3
 
   const now = new Date()
@@ -305,9 +306,22 @@ export function recommendReplenishment(
   const vendors = (data.vendors ?? []).filter((v) => !v.isHidden)
   const vendorById = new Map<number, Vendor>()
   const leadTimeByVendorId = new Map<number, number>()
+  const minOrderCasesByVendorId = new Map<number, number>()
   for (const v of vendors) {
     vendorById.set(v.id, v)
-    leadTimeByVendorId.set(v.id, parseLeadTimeDaysFromVendorNote(v, leadTimeDefaultDays))
+    const ltRaw = Number((v as any).leadTimeDays ?? v.leadTimeDays ?? NaN)
+    const lt =
+      Number.isFinite(ltRaw) && ltRaw >= 0
+        ? Math.floor(ltRaw)
+        : parseLeadTimeDaysFromVendorNote(v, leadTimeDefaultDays)
+    leadTimeByVendorId.set(v.id, lt)
+
+    const minRaw = Number((v as any).minOrderCases ?? v.minOrderCases ?? NaN)
+    const minCases =
+      Number.isFinite(minRaw) && minRaw >= 0
+        ? Math.floor(minRaw)
+        : minVendorOrderCasesDefault
+    minOrderCasesByVendorId.set(v.id, minCases)
   }
 
   const vendorPrices = (data.vendorPrices ?? []) as VendorPriceRow[]
@@ -480,6 +494,7 @@ export function recommendReplenishment(
         vendorName: chosenVendorName || `NCC #${chosenVendorId}`,
         vendorPhone: chosenVendor?.phone ?? null,
         leadTimeDays: chosenLeadTime ?? leadTimeDefaultDays,
+        minOrderCases: minOrderCasesByVendorId.get(chosenVendorId) ?? minVendorOrderCasesDefault,
         totalCases: 0,
         totalCost: 0,
         meetsMinOrder: false,
@@ -523,8 +538,10 @@ export function recommendReplenishment(
   }
 
   for (const order of allOrders) {
-    if (order.totalCases >= minVendorOrderCases) continue
-    const need = minVendorOrderCases - order.totalCases
+    const minOrderCases = Math.max(0, Number(order.minOrderCases ?? minVendorOrderCasesDefault) || 0)
+    order.minOrderCases = minOrderCases
+    if (order.totalCases >= minOrderCases) continue
+    const need = minOrderCases - order.totalCases
 
     // Tìm các sản phẩm hiện đang đặt ở vendor khác, nhưng vendor này cũng có giá và không vi phạm lead time
     const candidates: {
@@ -799,7 +816,7 @@ export function recommendReplenishment(
       }
     }
 
-    if (order.totalCases < minVendorOrderCases) {
+    if (order.totalCases < minOrderCases) {
       order.meetsMinOrder = false
       order.lines.forEach((l) => {
         if (!l.riskFlags.includes('VENDOR_MIN_ORDER_NOT_MET')) {
@@ -812,13 +829,15 @@ export function recommendReplenishment(
   // Pass cuối: sau khi đã shift giữa các vendor, đảm bảo các đơn "khẩn cấp" (stock < min) vẫn cố đạt min order.
   // Lý do: một đơn có thể được top-up ở lượt xử lý của nó, nhưng bị shift ra ở lượt vendor khác sau đó.
   for (const order of allOrders) {
-    if (order.totalCases >= minVendorOrderCases) continue
+    const minOrderCases = Math.max(0, Number(order.minOrderCases ?? minVendorOrderCasesDefault) || 0)
+    order.minOrderCases = minOrderCases
+    if (order.totalCases >= minOrderCases) continue
     const hasEmergency = order.lines.some(
       (l) => (l.currentStockUnits ?? 0) < (l.minStockUnits ?? 0)
     )
     if (!hasEmergency) continue
 
-    let remaining = minVendorOrderCases - order.totalCases
+    let remaining = minOrderCases - order.totalCases
     if (remaining <= 0) continue
 
     // Planned cases hiện tại theo product trong order
@@ -934,7 +953,9 @@ export function recommendReplenishment(
       o.lines = o.lines.filter((l) => l.cases > 0)
       o.totalCases = o.lines.reduce((s, l) => s + l.cases, 0)
       o.totalCost = o.lines.reduce((s, l) => s + l.lineCost, 0)
-      o.meetsMinOrder = o.totalCases >= minVendorOrderCases
+      const minOrderCases = Math.max(0, Number(o.minOrderCases ?? minVendorOrderCasesDefault) || 0)
+      o.minOrderCases = minOrderCases
+      o.meetsMinOrder = o.totalCases >= minOrderCases
       return o
     })
     .sort((a, b) => a.vendorName.localeCompare(b.vendorName))
@@ -950,7 +971,7 @@ export function recommendReplenishment(
     generatedAt: new Date().toISOString(),
     horizonDays,
     maxZeroDaysAllowed,
-    minVendorOrderCases,
+    minVendorOrderCases: minVendorOrderCasesDefault,
     products: productSuggestions,
     vendorOrders
   }

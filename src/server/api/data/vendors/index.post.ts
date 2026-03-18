@@ -1,7 +1,9 @@
 import type { Vendor } from '../../../posData'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<Pick<Vendor, 'name' | 'phone' | 'note'>>(event)
+  const body = await readBody<
+    Pick<Vendor, 'name' | 'phone' | 'note' | 'minOrderCases' | 'leadTimeDays'>
+  >(event)
   const name = body?.name?.trim() || ''
   if (!name) {
     throw createError({
@@ -16,9 +18,12 @@ export default defineEventHandler(async (event) => {
   )
   const id = nextIdResult.rows[0]?.id ?? 1
 
+  const minOrderCases = Math.max(0, Math.floor(Number(body.minOrderCases ?? 5) || 0))
+  const leadTimeDays = Math.max(0, Math.floor(Number(body.leadTimeDays ?? 3) || 0))
+
   await query(
-    'INSERT INTO vendors (id, name, phone, note, is_hidden) VALUES ($1, $2, $3, $4, false)',
-    [id, name, body.phone ?? '', body.note ?? '']
+    'INSERT INTO vendors (id, name, phone, note, min_order_cases, lead_time_days, is_hidden) VALUES ($1, $2, $3, $4, $5, $6, false)',
+    [id, name, body.phone ?? '', body.note ?? '', minOrderCases, leadTimeDays]
   )
 
   return { id }
