@@ -1,4 +1,4 @@
-import type { Vendor } from '../../posData'
+import type { Vendor } from '../../../posData'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<Pick<Vendor, 'name' | 'phone' | 'note'>>(event)
@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const { query } = await import('../../utils/db')
+  const { query } = await import('../../../utils/db')
   const nextIdResult = await query<{ id: number }>(
     'SELECT COALESCE(MAX(id), 0) + 1 AS id FROM vendors'
   )
@@ -23,4 +23,3 @@ export default defineEventHandler(async (event) => {
 
   return { id }
 })
-
