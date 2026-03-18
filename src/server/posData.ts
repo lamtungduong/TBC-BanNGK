@@ -40,18 +40,23 @@ async function ensureSchema(): Promise<void> {
         pack_size INTEGER DEFAULT 24,
         is_hidden BOOLEAN DEFAULT false,
         display_order INTEGER DEFAULT 0,
-        min_stock INTEGER DEFAULT 0,
-        max_stock INTEGER DEFAULT 0
+        min_stock NUMERIC(10,2) DEFAULT 0,
+        max_stock NUMERIC(10,2) DEFAULT 0
       )
     `)
     await query(`
       ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0
     `).catch(() => {})
     await query(`
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock INTEGER DEFAULT 0
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock NUMERIC(10,2) DEFAULT 0
     `).catch(() => {})
     await query(`
-      ALTER TABLE products ADD COLUMN IF NOT EXISTS max_stock INTEGER DEFAULT 0
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS max_stock NUMERIC(10,2) DEFAULT 0
+    `).catch(() => {})
+    await query(`
+      ALTER TABLE products
+      ALTER COLUMN min_stock TYPE NUMERIC(10,2) USING min_stock::NUMERIC(10,2),
+      ALTER COLUMN max_stock TYPE NUMERIC(10,2) USING max_stock::NUMERIC(10,2)
     `).catch(() => {})
     await query(`
       UPDATE products SET display_order = id WHERE display_order = 0 OR display_order IS NULL
@@ -403,8 +408,8 @@ export async function saveFullPosData(data: PosData): Promise<void> {
     await client.query('DELETE FROM products')
 
     await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0').catch(() => {})
-    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock INTEGER DEFAULT 0').catch(() => {})
-    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS max_stock INTEGER DEFAULT 0').catch(() => {})
+    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock NUMERIC(10,2) DEFAULT 0').catch(() => {})
+    await client.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS max_stock NUMERIC(10,2) DEFAULT 0').catch(() => {})
     for (const p of data.products) {
       await client.query(
         `
