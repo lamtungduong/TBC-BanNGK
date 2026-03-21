@@ -3,7 +3,7 @@
  * mọi API và ảnh sẽ gửi sang server LAN (A) qua Cloudflare Tunnel — URL trình duyệt vẫn là (B).
  *
  * Cấu hình: trong nuxt.config hoặc env NUXT_PUBLIC_TUNNEL_ORIGIN = URL public của tunnel
- * (vd: https://tbc-fnb-lan.xxx.com hoặc URL do Cloudflare Tunnel cấp).
+ * (vd: https://fnb.123zo.uk hoặc URL do Cloudflare Tunnel cấp).
  */
 const VERCEL_HOST = 'tbc-fnb.vercel.app'
 const LAN_CHECK_TIMEOUT_MS = 4000

@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   runtimeConfig: {
     public: {
-      /** URL public của Cloudflare Tunnel (server LAN). Ví dụ: https://tbc-fnb-lan.xxx.com */
+      /** URL public của Cloudflare Tunnel (server LAN). Ví dụ: https://fnb.123zo.uk */
       tunnelOrigin: '',
       /** Build id thay đổi mỗi lần build/deploy — dùng để reset cookie trên client khi có bản cập nhật (trừ cookie đăng nhập admin). */
       buildId: process.env.BUILD_ID || String(Date.now())
